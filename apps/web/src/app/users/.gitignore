@@ -1,0 +1,36 @@
+# dependencies
+node_modules/
+.pnpm-debug.log*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# build outputs
+dist/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+
+# local env
+.env
+.env.local
+apps/**/.env
+apps/**/.env.local
+packages/**/.env
+packages/**/.env.local
+
+# misc
+.DS_Store
+.vscode/*
+!.vscode/tasks.json
+!.vscode/extensions.json
+
+# turborepo
+.turbo/
+
+# orval artifacts: wir COMMITTEN die generierten Files (gen/)!
+# => NICHT ignorieren: packages/api-types/src/gen/**
+
+# lockfiles: nur eines im Root!
+apps/**/pnpm-lock.yaml

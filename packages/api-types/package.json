@@ -1,0 +1,10 @@
+{
+  "name": "@acme/api-types",
+  "private": true,
+  "version": "0.0.0",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@tanstack/react-query": "^5.85.9"
+  }
+}
