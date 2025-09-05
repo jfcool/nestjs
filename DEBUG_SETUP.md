@@ -17,10 +17,12 @@ Both server and client are now properly configured for debugging in the pnpm mon
    - Select **"Attach to NestJS API"**
    - Click the green play button or press `F5`
 
-### Alternative: VSCode Debug Panel (Fallback)
-If the attach method doesn't work, you can use:
+### Alternative: VSCode Debug Panel (Additional Options)
+Additional launch configurations available:
 - **"Launch NestJS API (Direct - Fallback)"** - Direct TypeScript execution with ts-node
-- **"Debug Full Stack (Attach Mode)"** - Compound configuration for full-stack debugging
+- **"Launch Next.js UI (Direct)"** - Start the Next.js frontend directly in debug mode
+- **"Debug Full Stack (Attach Mode)"** - Attach to running API only
+- **"Debug Full Stack (Launch Mode)"** - Launch both API and UI directly
 
 ### Option 3: Terminal Commands Only
 ```bash
@@ -45,10 +47,21 @@ cd apps/web && pnpm run dev
 - **Usage**: One-click launch from VSCode (fallback only)
 - **Benefits**: Direct debugging without compilation
 
-### 3. Debug Full Stack (Attach Mode)
+### 3. Launch Next.js UI (Direct) - NEW
+- **Type**: Direct Next.js launch
+- **Runtime**: pnpm with Next.js dev server
+- **Usage**: One-click launch of the frontend in debug mode
+- **Benefits**: Direct UI debugging with hot reload
+
+### 4. Debug Full Stack (Attach Mode)
 - **Type**: Compound configuration
 - **Usage**: Attaches to running API process
 - **Benefits**: Clean separation of concerns, debugger only when needed
+
+### 5. Debug Full Stack (Launch Mode) - NEW
+- **Type**: Compound configuration
+- **Usage**: Launches both API and UI directly
+- **Benefits**: One-click full-stack debugging setup
 
 ## 🔍 SAP Connection Debug Features
 

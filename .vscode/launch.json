@@ -1,0 +1,59 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Attach to NestJS API",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "restart": true,
+      "localRoot": "${workspaceFolder}/apps/api",
+      "remoteRoot": "${workspaceFolder}/apps/api",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Launch NestJS API (Direct - Fallback)",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/apps/api/src/main.ts",
+      "args": [],
+      "cwd": "${workspaceFolder}/apps/api",
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "console": "integratedTerminal",
+      "restart": true,
+      "protocol": "inspector",
+      "stopOnEntry": false,
+      "sourceMaps": true,
+      "outFiles": ["${workspaceFolder}/apps/api/dist/**/*.js"],
+      "skipFiles": ["<node_internals>/**"],
+      "runtimeArgs": ["--inspect=9229", "-r", "ts-node/register", "-r", "tsconfig-paths/register"]
+    },
+    {
+      "name": "Launch Next.js UI (Direct)",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/apps/web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["run", "dev"],
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**"],
+      "autoAttachChildProcesses": false
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Debug Full Stack (Attach Mode)",
+      "configurations": ["Attach to NestJS API"]
+    },
+    {
+      "name": "Debug Full Stack (Launch Mode)",
+      "configurations": ["Launch NestJS API (Direct - Fallback)", "Launch Next.js UI (Direct)"]
+    }
+  ]
+}
