@@ -29,12 +29,49 @@
       "outFiles": ["${workspaceFolder}/apps/api/dist/**/*.js"],
       "skipFiles": ["<node_internals>/**"],
       "runtimeArgs": ["--inspect=9229", "-r", "ts-node/register", "-r", "tsconfig-paths/register"]
+    },
+    {
+      "name": "Start Frontend (Task)",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/apps/web/node_modules/.bin/next",
+      "args": ["dev", "--turbopack"],
+      "cwd": "${workspaceFolder}/apps/web",
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**"],
+      "preLaunchTask": "Start Frontend",
+      "windows": {
+        "program": "${workspaceFolder}/apps/web/node_modules/.bin/next.cmd"
+      }
+    },
+    {
+      "name": "Start API (Debug Ready - Task)",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/apps/api/src/main.ts",
+      "args": [],
+      "cwd": "${workspaceFolder}/apps/api",
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**"],
+      "preLaunchTask": "Start API (Debug Ready)"
     }
   ],
   "compounds": [
     {
       "name": "Debug Full Stack (Attach Mode)",
       "configurations": ["Attach to NestJS API"]
+    },
+    {
+      "name": "Start Full Stack (Tasks)",
+      "configurations": ["Start API (Debug Ready - Task)", "Start Frontend (Task)"]
     }
   ]
 }

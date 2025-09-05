@@ -17,14 +17,17 @@ Both server and client are now properly configured for debugging in the pnpm mon
    - Select **"Attach to NestJS API"**
    - Click the green play button or press `F5`
 
-### Alternative: VSCode Options
+### Alternative: VSCode Debug Panel (Fast Access)
 
 **Launch Configurations:**
 - **"Launch NestJS API (Direct - Fallback)"** - Direct TypeScript execution with ts-node
+- **"Start Frontend (Task)"** - Start Next.js UI via task (fast access, no debugging issues)
+- **"Start API (Debug Ready - Task)"** - Start API in debug mode via task (fast access)
 - **"Debug Full Stack (Attach Mode)"** - Attach to running API only
+- **"Start Full Stack (Tasks)"** - Start both API and UI via tasks
 
-**VSCode Tasks (Recommended for UI):**
-- **"Start Frontend"** - Start the Next.js UI using pnpm (avoids VSCode debugging issues)
+**VSCode Tasks (Alternative Access):**
+- **"Start Frontend"** - Start the Next.js UI using pnpm
 - **"Start API (Debug Ready)"** - Start API in debug mode, ready for attachment
 - **"Start API (No Debug)"** - Start API without debugging
 
@@ -53,10 +56,25 @@ cd apps/web && pnpm run dev
 - **Usage**: One-click launch from VSCode (fallback only)
 - **Benefits**: Direct debugging without compilation
 
-### 3. Debug Full Stack (Attach Mode)
+### 3. Start Frontend (Task) - NEW
+- **Type**: Launch configuration that triggers VSCode task
+- **Usage**: Fast access from Debug Panel to start UI
+- **Benefits**: One-click UI startup, avoids debugging flag issues
+
+### 4. Start API (Debug Ready - Task) - NEW
+- **Type**: Launch configuration that triggers VSCode task
+- **Usage**: Fast access from Debug Panel to start API in debug mode
+- **Benefits**: One-click API startup ready for debugger attachment
+
+### 5. Debug Full Stack (Attach Mode)
 - **Type**: Compound configuration
 - **Usage**: Attaches to running API process
 - **Benefits**: Clean separation of concerns, debugger only when needed
+
+### 6. Start Full Stack (Tasks) - NEW
+- **Type**: Compound configuration that triggers multiple tasks
+- **Usage**: One-click startup of both API and UI via tasks
+- **Benefits**: Complete development environment startup
 
 ## 🛠️ VSCode Tasks (Recommended for UI)
 
