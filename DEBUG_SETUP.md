@@ -6,24 +6,21 @@ Both server and client are now properly configured for debugging in the pnpm mon
 
 ## 🚀 How to Start Debugging
 
-### Option 1: VSCode Debug Panel (Multiple Choices)
-1. Press `Ctrl+Shift+D` (or `Cmd+Shift+D` on Mac)
-2. Select from these configurations:
-   - **"Attach to NestJS API"** - Attach to running debug server (most reliable)
-   - **"Launch NestJS API (Direct)"** - Direct TypeScript execution with ts-node
-   - **"Launch NestJS API (via pnpm)"** - Launch through pnpm (fixed flag issues)
-   - **"Launch Next.js Frontend"** - Launch frontend in debug mode
-   - **"Debug Full Stack (Attach Mode)"** - Attach to running API
-   - **"Debug Full Stack (Launch Mode)"** - Launch both API and frontend
-3. Click the green play button or press `F5`
+### Recommended Approach: Terminal + Attach
+1. **Start API in debug mode** (in terminal):
+   ```bash
+   cd apps/api && pnpm run debug
+   ```
 
-### Option 2: Terminal + Attach (Most Reliable)
-```bash
-# Step 1: Start API in debug mode (terminal)
-cd apps/api && pnpm run debug
+2. **Attach debugger** (in VSCode):
+   - Press `Ctrl+Shift+D` (or `Cmd+Shift+D` on Mac)
+   - Select **"Attach to NestJS API"**
+   - Click the green play button or press `F5`
 
-# Step 2: In VSCode Debug Panel, select "Attach to NestJS API" and press F5
-```
+### Alternative: VSCode Debug Panel (Fallback)
+If the attach method doesn't work, you can use:
+- **"Launch NestJS API (Direct - Fallback)"** - Direct TypeScript execution with ts-node
+- **"Debug Full Stack (Attach Mode)"** - Compound configuration for full-stack debugging
 
 ### Option 3: Terminal Commands Only
 ```bash
@@ -36,32 +33,22 @@ cd apps/web && pnpm run dev
 
 ## 🔧 Debug Configurations
 
-### 1. Attach to NestJS API (Recommended)
+### 1. Attach to NestJS API (Primary Method)
 - **Type**: Attach to running process
 - **Port**: 9229
 - **Usage**: Start API with `pnpm run debug` first, then attach
-- **Benefits**: Most reliable, avoids flag conflicts
+- **Benefits**: Most reliable, avoids VSCode flag conflicts, no automatic debugger attachment
 
-### 2. Launch NestJS API (Direct)
+### 2. Launch NestJS API (Direct - Fallback)
 - **Type**: Direct TypeScript execution
 - **Runtime**: Node.js with ts-node
-- **Usage**: One-click launch from VSCode
+- **Usage**: One-click launch from VSCode (fallback only)
 - **Benefits**: Direct debugging without compilation
 
-### 3. Launch NestJS API (via pnpm)
-- **Type**: Launch through pnpm
-- **Usage**: Uses your pnpm debug script
-- **Benefits**: Consistent with your workflow
-- **Fixed**: Removed problematic flags that caused conflicts
-
-### 4. Launch Next.js Frontend
-- **Type**: Launch through pnpm
-- **Usage**: Starts frontend in debug mode
-- **Benefits**: Full-stack debugging capability
-
-### 5. Compound Configurations
-- **Debug Full Stack (Attach Mode)**: Attach to running API
-- **Debug Full Stack (Launch Mode)**: Launch both API and frontend
+### 3. Debug Full Stack (Attach Mode)
+- **Type**: Compound configuration
+- **Usage**: Attaches to running API process
+- **Benefits**: Clean separation of concerns, debugger only when needed
 
 ## 🔍 SAP Connection Debug Features
 
