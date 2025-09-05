@@ -61,6 +61,54 @@ export class SapController {
   }
 
   /**
+   * Get entity sets for a specific service
+   * POST /sapodata/service/:serviceName/entitysets
+   */
+  @Post('service/:serviceName/entitysets')
+  async getServiceEntitySets(
+    @Param('serviceName') serviceName: string,
+    @Body() connectionInfo: SapConnectionDto
+  ): Promise<SapODataResponse> {
+    this.logger.log(`Fetching entity sets for SAP service: ${serviceName}`);
+    
+    // Get service document which contains entity sets
+    const servicePath = `/sap/opu/odata/sap/${serviceName}/`;
+    return this.sapService.getData(servicePath, connectionInfo);
+  }
+
+  /**
+   * Get data from a specific entity set
+   * POST /sapodata/service/:serviceName/entityset/:entitySetName
+   */
+  @Post('service/:serviceName/entityset/:entitySetName')
+  async getEntitySetData(
+    @Param('serviceName') serviceName: string,
+    @Param('entitySetName') entitySetName: string,
+    @Body() body: { connectionInfo: SapConnectionDto; options?: { top?: number; skip?: number; filter?: string; orderby?: string; select?: string; expand?: string } }
+  ): Promise<SapODataResponse> {
+    this.logger.log(`Fetching data for entity set: ${entitySetName} in service: ${serviceName}`);
+    
+    let servicePath = `/sap/opu/odata/sap/${serviceName}/${entitySetName}`;
+    
+    // Add OData query parameters if provided
+    if (body.options) {
+      const queryParams: string[] = [];
+      if (body.options.filter) queryParams.push(`$filter=${encodeURIComponent(body.options.filter)}`);
+      if (body.options.top) queryParams.push(`$top=${body.options.top}`);
+      if (body.options.skip) queryParams.push(`$skip=${body.options.skip}`);
+      if (body.options.orderby) queryParams.push(`$orderby=${encodeURIComponent(body.options.orderby)}`);
+      if (body.options.select) queryParams.push(`$select=${encodeURIComponent(body.options.select)}`);
+      if (body.options.expand) queryParams.push(`$expand=${encodeURIComponent(body.options.expand)}`);
+      
+      if (queryParams.length > 0) {
+        servicePath += `?${queryParams.join('&')}`;
+      }
+    }
+
+    return this.sapService.getData(servicePath, body.connectionInfo);
+  }
+
+  /**
    * Get specific SAP service by name (convenience endpoint)
    * POST /sapodata/service/:serviceName
    */
@@ -109,6 +157,23 @@ export class SapController {
   }
 
   /**
+   * Parse metadata to extract entity sets and their properties
+   * POST /sapodata/service/:serviceName/metadata/parsed
+   */
+  @Post('service/:serviceName/metadata/parsed')
+  async getParsedMetadata(
+    @Param('serviceName') serviceName: string,
+    @Body() connectionInfo: SapConnectionDto
+  ): Promise<any> {
+    this.logger.log(`Fetching and parsing SAP service metadata for: ${serviceName}`);
+    const metadataPath = `/sap/opu/odata/sap/${serviceName}/$metadata`;
+    const metadataResponse = await this.sapService.getMetadata(metadataPath, connectionInfo);
+    
+    // Parse the XML metadata to extract entity sets and their properties
+    return this.sapService.parseMetadata(metadataResponse.content);
+  }
+
+  /**
    * Health check endpoint
    * GET /sapodata/health
    */
@@ -129,7 +194,7 @@ export class SapController {
     return {
       title: 'SAP OData Integration API',
       version: '1.0.0',
-      description: 'NestJS-based SAP OData integration service',
+      description: 'NestJS-based SAP OData integration service with EntitySets support',
       endpoints: {
         'POST /sapodata/data': 'Fetch OData service data',
         'POST /sapodata/metadata': 'Fetch OData metadata',
@@ -137,6 +202,9 @@ export class SapController {
         'POST /sapodata/catalog': 'Get service catalog',
         'POST /sapodata/service/:serviceName': 'Get service data with query options',
         'POST /sapodata/service/:serviceName/metadata': 'Get service metadata',
+        'POST /sapodata/service/:serviceName/metadata/parsed': 'Get parsed metadata with entity sets',
+        'POST /sapodata/service/:serviceName/entitysets': 'Get entity sets for a service',
+        'POST /sapodata/service/:serviceName/entityset/:entitySetName': 'Get data from specific entity set',
         'GET /sapodata/health': 'Health check',
         'GET /sapodata/docs': 'API documentation',
       },
@@ -165,6 +233,14 @@ export class SapController {
         '$orderby': 'Sort results',
         '$select': 'Select specific fields',
         '$expand': 'Expand related entities',
+      },
+      entitySetOptions: {
+        top: 'Number - Limit results (e.g., 50)',
+        skip: 'Number - Skip results (e.g., 100)',
+        filter: 'String - OData filter expression',
+        orderby: 'String - Sort expression (e.g., "Name asc")',
+        select: 'String - Select specific fields (e.g., "Name,Description")',
+        expand: 'String - Expand related entities',
       },
     };
   }

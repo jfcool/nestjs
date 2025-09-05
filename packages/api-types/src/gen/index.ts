@@ -32,6 +32,17 @@ export interface CreateUserDto {
   email?: string | null;
 }
 
+export interface SapODataRequestDto { [key: string]: unknown }
+
+export interface SapConnectionDto { [key: string]: unknown }
+
+export type SapControllerGetServiceDataParams = {
+entitySet: string;
+filter: string;
+top: string;
+skip: string;
+};
+
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 
@@ -266,3 +277,861 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
       return useMutation(mutationOptions );
     }
+    
+export type sapControllerGetSapODataResponse201 = {
+  data: null
+  status: 201
+}
+    
+export type sapControllerGetSapODataResponseComposite = sapControllerGetSapODataResponse201;
+    
+export type sapControllerGetSapODataResponse = sapControllerGetSapODataResponseComposite & {
+  headers: Headers;
+}
+
+export const getSapControllerGetSapODataUrl = () => {
+
+
+  
+
+  return `/sapodata/data`
+}
+
+export const sapControllerGetSapOData = async (sapODataRequestDto: SapODataRequestDto, options?: RequestInit): Promise<sapControllerGetSapODataResponse> => {
+  
+  return customFetch<sapControllerGetSapODataResponse>(getSapControllerGetSapODataUrl(),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      sapODataRequestDto,)
+  }
+);}
+
+
+
+
+export const getSapControllerGetSapODataMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sapControllerGetSapOData>>, TError,{data: SapODataRequestDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sapControllerGetSapOData>>, TError,{data: SapODataRequestDto}, TContext> => {
+
+const mutationKey = ['sapControllerGetSapOData'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sapControllerGetSapOData>>, {data: SapODataRequestDto}> = (props) => {
+          const {data} = props ?? {};
+
+          return  sapControllerGetSapOData(data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SapControllerGetSapODataMutationResult = NonNullable<Awaited<ReturnType<typeof sapControllerGetSapOData>>>
+    export type SapControllerGetSapODataMutationBody = SapODataRequestDto
+    export type SapControllerGetSapODataMutationError = unknown
+
+    export const useSapControllerGetSapOData = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sapControllerGetSapOData>>, TError,{data: SapODataRequestDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sapControllerGetSapOData>>,
+        TError,
+        {data: SapODataRequestDto},
+        TContext
+      > => {
+
+      const mutationOptions = getSapControllerGetSapODataMutationOptions(options);
+
+      return useMutation(mutationOptions );
+    }
+    
+export type sapControllerGetSapODataMetadataResponse201 = {
+  data: null
+  status: 201
+}
+    
+export type sapControllerGetSapODataMetadataResponseComposite = sapControllerGetSapODataMetadataResponse201;
+    
+export type sapControllerGetSapODataMetadataResponse = sapControllerGetSapODataMetadataResponseComposite & {
+  headers: Headers;
+}
+
+export const getSapControllerGetSapODataMetadataUrl = () => {
+
+
+  
+
+  return `/sapodata/metadata`
+}
+
+export const sapControllerGetSapODataMetadata = async (sapODataRequestDto: SapODataRequestDto, options?: RequestInit): Promise<sapControllerGetSapODataMetadataResponse> => {
+  
+  return customFetch<sapControllerGetSapODataMetadataResponse>(getSapControllerGetSapODataMetadataUrl(),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      sapODataRequestDto,)
+  }
+);}
+
+
+
+
+export const getSapControllerGetSapODataMetadataMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sapControllerGetSapODataMetadata>>, TError,{data: SapODataRequestDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sapControllerGetSapODataMetadata>>, TError,{data: SapODataRequestDto}, TContext> => {
+
+const mutationKey = ['sapControllerGetSapODataMetadata'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sapControllerGetSapODataMetadata>>, {data: SapODataRequestDto}> = (props) => {
+          const {data} = props ?? {};
+
+          return  sapControllerGetSapODataMetadata(data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SapControllerGetSapODataMetadataMutationResult = NonNullable<Awaited<ReturnType<typeof sapControllerGetSapODataMetadata>>>
+    export type SapControllerGetSapODataMetadataMutationBody = SapODataRequestDto
+    export type SapControllerGetSapODataMetadataMutationError = unknown
+
+    export const useSapControllerGetSapODataMetadata = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sapControllerGetSapODataMetadata>>, TError,{data: SapODataRequestDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sapControllerGetSapODataMetadata>>,
+        TError,
+        {data: SapODataRequestDto},
+        TContext
+      > => {
+
+      const mutationOptions = getSapControllerGetSapODataMetadataMutationOptions(options);
+
+      return useMutation(mutationOptions );
+    }
+    
+export type sapControllerSetupConnectionSettingsResponse201 = {
+  data: null
+  status: 201
+}
+    
+export type sapControllerSetupConnectionSettingsResponseComposite = sapControllerSetupConnectionSettingsResponse201;
+    
+export type sapControllerSetupConnectionSettingsResponse = sapControllerSetupConnectionSettingsResponseComposite & {
+  headers: Headers;
+}
+
+export const getSapControllerSetupConnectionSettingsUrl = () => {
+
+
+  
+
+  return `/sapodata/setup`
+}
+
+export const sapControllerSetupConnectionSettings = async (sapConnectionDto: SapConnectionDto, options?: RequestInit): Promise<sapControllerSetupConnectionSettingsResponse> => {
+  
+  return customFetch<sapControllerSetupConnectionSettingsResponse>(getSapControllerSetupConnectionSettingsUrl(),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      sapConnectionDto,)
+  }
+);}
+
+
+
+
+export const getSapControllerSetupConnectionSettingsMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sapControllerSetupConnectionSettings>>, TError,{data: SapConnectionDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sapControllerSetupConnectionSettings>>, TError,{data: SapConnectionDto}, TContext> => {
+
+const mutationKey = ['sapControllerSetupConnectionSettings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sapControllerSetupConnectionSettings>>, {data: SapConnectionDto}> = (props) => {
+          const {data} = props ?? {};
+
+          return  sapControllerSetupConnectionSettings(data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SapControllerSetupConnectionSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof sapControllerSetupConnectionSettings>>>
+    export type SapControllerSetupConnectionSettingsMutationBody = SapConnectionDto
+    export type SapControllerSetupConnectionSettingsMutationError = unknown
+
+    export const useSapControllerSetupConnectionSettings = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sapControllerSetupConnectionSettings>>, TError,{data: SapConnectionDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sapControllerSetupConnectionSettings>>,
+        TError,
+        {data: SapConnectionDto},
+        TContext
+      > => {
+
+      const mutationOptions = getSapControllerSetupConnectionSettingsMutationOptions(options);
+
+      return useMutation(mutationOptions );
+    }
+    
+export type sapControllerGetServiceCatalogResponse201 = {
+  data: null
+  status: 201
+}
+    
+export type sapControllerGetServiceCatalogResponseComposite = sapControllerGetServiceCatalogResponse201;
+    
+export type sapControllerGetServiceCatalogResponse = sapControllerGetServiceCatalogResponseComposite & {
+  headers: Headers;
+}
+
+export const getSapControllerGetServiceCatalogUrl = () => {
+
+
+  
+
+  return `/sapodata/catalog`
+}
+
+export const sapControllerGetServiceCatalog = async (sapConnectionDto: SapConnectionDto, options?: RequestInit): Promise<sapControllerGetServiceCatalogResponse> => {
+  
+  return customFetch<sapControllerGetServiceCatalogResponse>(getSapControllerGetServiceCatalogUrl(),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      sapConnectionDto,)
+  }
+);}
+
+
+
+
+export const getSapControllerGetServiceCatalogMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sapControllerGetServiceCatalog>>, TError,{data: SapConnectionDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sapControllerGetServiceCatalog>>, TError,{data: SapConnectionDto}, TContext> => {
+
+const mutationKey = ['sapControllerGetServiceCatalog'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sapControllerGetServiceCatalog>>, {data: SapConnectionDto}> = (props) => {
+          const {data} = props ?? {};
+
+          return  sapControllerGetServiceCatalog(data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SapControllerGetServiceCatalogMutationResult = NonNullable<Awaited<ReturnType<typeof sapControllerGetServiceCatalog>>>
+    export type SapControllerGetServiceCatalogMutationBody = SapConnectionDto
+    export type SapControllerGetServiceCatalogMutationError = unknown
+
+    export const useSapControllerGetServiceCatalog = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sapControllerGetServiceCatalog>>, TError,{data: SapConnectionDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sapControllerGetServiceCatalog>>,
+        TError,
+        {data: SapConnectionDto},
+        TContext
+      > => {
+
+      const mutationOptions = getSapControllerGetServiceCatalogMutationOptions(options);
+
+      return useMutation(mutationOptions );
+    }
+    
+export type sapControllerGetServiceEntitySetsResponse201 = {
+  data: null
+  status: 201
+}
+    
+export type sapControllerGetServiceEntitySetsResponseComposite = sapControllerGetServiceEntitySetsResponse201;
+    
+export type sapControllerGetServiceEntitySetsResponse = sapControllerGetServiceEntitySetsResponseComposite & {
+  headers: Headers;
+}
+
+export const getSapControllerGetServiceEntitySetsUrl = (serviceName: string,) => {
+
+
+  
+
+  return `/sapodata/service/${serviceName}/entitysets`
+}
+
+export const sapControllerGetServiceEntitySets = async (serviceName: string,
+    sapConnectionDto: SapConnectionDto, options?: RequestInit): Promise<sapControllerGetServiceEntitySetsResponse> => {
+  
+  return customFetch<sapControllerGetServiceEntitySetsResponse>(getSapControllerGetServiceEntitySetsUrl(serviceName),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      sapConnectionDto,)
+  }
+);}
+
+
+
+
+export const getSapControllerGetServiceEntitySetsMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sapControllerGetServiceEntitySets>>, TError,{serviceName: string;data: SapConnectionDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sapControllerGetServiceEntitySets>>, TError,{serviceName: string;data: SapConnectionDto}, TContext> => {
+
+const mutationKey = ['sapControllerGetServiceEntitySets'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sapControllerGetServiceEntitySets>>, {serviceName: string;data: SapConnectionDto}> = (props) => {
+          const {serviceName,data} = props ?? {};
+
+          return  sapControllerGetServiceEntitySets(serviceName,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SapControllerGetServiceEntitySetsMutationResult = NonNullable<Awaited<ReturnType<typeof sapControllerGetServiceEntitySets>>>
+    export type SapControllerGetServiceEntitySetsMutationBody = SapConnectionDto
+    export type SapControllerGetServiceEntitySetsMutationError = unknown
+
+    export const useSapControllerGetServiceEntitySets = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sapControllerGetServiceEntitySets>>, TError,{serviceName: string;data: SapConnectionDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sapControllerGetServiceEntitySets>>,
+        TError,
+        {serviceName: string;data: SapConnectionDto},
+        TContext
+      > => {
+
+      const mutationOptions = getSapControllerGetServiceEntitySetsMutationOptions(options);
+
+      return useMutation(mutationOptions );
+    }
+    
+export type sapControllerGetEntitySetDataResponse201 = {
+  data: null
+  status: 201
+}
+    
+export type sapControllerGetEntitySetDataResponseComposite = sapControllerGetEntitySetDataResponse201;
+    
+export type sapControllerGetEntitySetDataResponse = sapControllerGetEntitySetDataResponseComposite & {
+  headers: Headers;
+}
+
+export const getSapControllerGetEntitySetDataUrl = (serviceName: string,
+    entitySetName: string,) => {
+
+
+  
+
+  return `/sapodata/service/${serviceName}/entityset/${entitySetName}`
+}
+
+export const sapControllerGetEntitySetData = async (serviceName: string,
+    entitySetName: string, options?: RequestInit): Promise<sapControllerGetEntitySetDataResponse> => {
+  
+  return customFetch<sapControllerGetEntitySetDataResponse>(getSapControllerGetEntitySetDataUrl(serviceName,entitySetName),
+  {      
+    ...options,
+    method: 'POST'
+    
+    
+  }
+);}
+
+
+
+
+export const getSapControllerGetEntitySetDataMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sapControllerGetEntitySetData>>, TError,{serviceName: string;entitySetName: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sapControllerGetEntitySetData>>, TError,{serviceName: string;entitySetName: string}, TContext> => {
+
+const mutationKey = ['sapControllerGetEntitySetData'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sapControllerGetEntitySetData>>, {serviceName: string;entitySetName: string}> = (props) => {
+          const {serviceName,entitySetName} = props ?? {};
+
+          return  sapControllerGetEntitySetData(serviceName,entitySetName,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SapControllerGetEntitySetDataMutationResult = NonNullable<Awaited<ReturnType<typeof sapControllerGetEntitySetData>>>
+    
+    export type SapControllerGetEntitySetDataMutationError = unknown
+
+    export const useSapControllerGetEntitySetData = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sapControllerGetEntitySetData>>, TError,{serviceName: string;entitySetName: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sapControllerGetEntitySetData>>,
+        TError,
+        {serviceName: string;entitySetName: string},
+        TContext
+      > => {
+
+      const mutationOptions = getSapControllerGetEntitySetDataMutationOptions(options);
+
+      return useMutation(mutationOptions );
+    }
+    
+export type sapControllerGetServiceDataResponse201 = {
+  data: null
+  status: 201
+}
+    
+export type sapControllerGetServiceDataResponseComposite = sapControllerGetServiceDataResponse201;
+    
+export type sapControllerGetServiceDataResponse = sapControllerGetServiceDataResponseComposite & {
+  headers: Headers;
+}
+
+export const getSapControllerGetServiceDataUrl = (serviceName: string,
+    params: SapControllerGetServiceDataParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/sapodata/service/${serviceName}?${stringifiedParams}` : `/sapodata/service/${serviceName}`
+}
+
+export const sapControllerGetServiceData = async (serviceName: string,
+    sapConnectionDto: SapConnectionDto,
+    params: SapControllerGetServiceDataParams, options?: RequestInit): Promise<sapControllerGetServiceDataResponse> => {
+  
+  return customFetch<sapControllerGetServiceDataResponse>(getSapControllerGetServiceDataUrl(serviceName,params),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      sapConnectionDto,)
+  }
+);}
+
+
+
+
+export const getSapControllerGetServiceDataMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sapControllerGetServiceData>>, TError,{serviceName: string;data: SapConnectionDto;params: SapControllerGetServiceDataParams}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sapControllerGetServiceData>>, TError,{serviceName: string;data: SapConnectionDto;params: SapControllerGetServiceDataParams}, TContext> => {
+
+const mutationKey = ['sapControllerGetServiceData'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sapControllerGetServiceData>>, {serviceName: string;data: SapConnectionDto;params: SapControllerGetServiceDataParams}> = (props) => {
+          const {serviceName,data,params} = props ?? {};
+
+          return  sapControllerGetServiceData(serviceName,data,params,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SapControllerGetServiceDataMutationResult = NonNullable<Awaited<ReturnType<typeof sapControllerGetServiceData>>>
+    export type SapControllerGetServiceDataMutationBody = SapConnectionDto
+    export type SapControllerGetServiceDataMutationError = unknown
+
+    export const useSapControllerGetServiceData = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sapControllerGetServiceData>>, TError,{serviceName: string;data: SapConnectionDto;params: SapControllerGetServiceDataParams}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sapControllerGetServiceData>>,
+        TError,
+        {serviceName: string;data: SapConnectionDto;params: SapControllerGetServiceDataParams},
+        TContext
+      > => {
+
+      const mutationOptions = getSapControllerGetServiceDataMutationOptions(options);
+
+      return useMutation(mutationOptions );
+    }
+    
+export type sapControllerGetServiceMetadataResponse201 = {
+  data: null
+  status: 201
+}
+    
+export type sapControllerGetServiceMetadataResponseComposite = sapControllerGetServiceMetadataResponse201;
+    
+export type sapControllerGetServiceMetadataResponse = sapControllerGetServiceMetadataResponseComposite & {
+  headers: Headers;
+}
+
+export const getSapControllerGetServiceMetadataUrl = (serviceName: string,) => {
+
+
+  
+
+  return `/sapodata/service/${serviceName}/metadata`
+}
+
+export const sapControllerGetServiceMetadata = async (serviceName: string,
+    sapConnectionDto: SapConnectionDto, options?: RequestInit): Promise<sapControllerGetServiceMetadataResponse> => {
+  
+  return customFetch<sapControllerGetServiceMetadataResponse>(getSapControllerGetServiceMetadataUrl(serviceName),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      sapConnectionDto,)
+  }
+);}
+
+
+
+
+export const getSapControllerGetServiceMetadataMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sapControllerGetServiceMetadata>>, TError,{serviceName: string;data: SapConnectionDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sapControllerGetServiceMetadata>>, TError,{serviceName: string;data: SapConnectionDto}, TContext> => {
+
+const mutationKey = ['sapControllerGetServiceMetadata'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sapControllerGetServiceMetadata>>, {serviceName: string;data: SapConnectionDto}> = (props) => {
+          const {serviceName,data} = props ?? {};
+
+          return  sapControllerGetServiceMetadata(serviceName,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SapControllerGetServiceMetadataMutationResult = NonNullable<Awaited<ReturnType<typeof sapControllerGetServiceMetadata>>>
+    export type SapControllerGetServiceMetadataMutationBody = SapConnectionDto
+    export type SapControllerGetServiceMetadataMutationError = unknown
+
+    export const useSapControllerGetServiceMetadata = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sapControllerGetServiceMetadata>>, TError,{serviceName: string;data: SapConnectionDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sapControllerGetServiceMetadata>>,
+        TError,
+        {serviceName: string;data: SapConnectionDto},
+        TContext
+      > => {
+
+      const mutationOptions = getSapControllerGetServiceMetadataMutationOptions(options);
+
+      return useMutation(mutationOptions );
+    }
+    
+export type sapControllerGetParsedMetadataResponse201 = {
+  data: null
+  status: 201
+}
+    
+export type sapControllerGetParsedMetadataResponseComposite = sapControllerGetParsedMetadataResponse201;
+    
+export type sapControllerGetParsedMetadataResponse = sapControllerGetParsedMetadataResponseComposite & {
+  headers: Headers;
+}
+
+export const getSapControllerGetParsedMetadataUrl = (serviceName: string,) => {
+
+
+  
+
+  return `/sapodata/service/${serviceName}/metadata/parsed`
+}
+
+export const sapControllerGetParsedMetadata = async (serviceName: string,
+    sapConnectionDto: SapConnectionDto, options?: RequestInit): Promise<sapControllerGetParsedMetadataResponse> => {
+  
+  return customFetch<sapControllerGetParsedMetadataResponse>(getSapControllerGetParsedMetadataUrl(serviceName),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      sapConnectionDto,)
+  }
+);}
+
+
+
+
+export const getSapControllerGetParsedMetadataMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sapControllerGetParsedMetadata>>, TError,{serviceName: string;data: SapConnectionDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sapControllerGetParsedMetadata>>, TError,{serviceName: string;data: SapConnectionDto}, TContext> => {
+
+const mutationKey = ['sapControllerGetParsedMetadata'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sapControllerGetParsedMetadata>>, {serviceName: string;data: SapConnectionDto}> = (props) => {
+          const {serviceName,data} = props ?? {};
+
+          return  sapControllerGetParsedMetadata(serviceName,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SapControllerGetParsedMetadataMutationResult = NonNullable<Awaited<ReturnType<typeof sapControllerGetParsedMetadata>>>
+    export type SapControllerGetParsedMetadataMutationBody = SapConnectionDto
+    export type SapControllerGetParsedMetadataMutationError = unknown
+
+    export const useSapControllerGetParsedMetadata = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sapControllerGetParsedMetadata>>, TError,{serviceName: string;data: SapConnectionDto}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sapControllerGetParsedMetadata>>,
+        TError,
+        {serviceName: string;data: SapConnectionDto},
+        TContext
+      > => {
+
+      const mutationOptions = getSapControllerGetParsedMetadataMutationOptions(options);
+
+      return useMutation(mutationOptions );
+    }
+    
+export type sapControllerHealthCheckResponse200 = {
+  data: null
+  status: 200
+}
+    
+export type sapControllerHealthCheckResponseComposite = sapControllerHealthCheckResponse200;
+    
+export type sapControllerHealthCheckResponse = sapControllerHealthCheckResponseComposite & {
+  headers: Headers;
+}
+
+export const getSapControllerHealthCheckUrl = () => {
+
+
+  
+
+  return `/sapodata/health`
+}
+
+export const sapControllerHealthCheck = async ( options?: RequestInit): Promise<sapControllerHealthCheckResponse> => {
+  
+  return customFetch<sapControllerHealthCheckResponse>(getSapControllerHealthCheckUrl(),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+);}
+
+
+
+export const getSapControllerHealthCheckQueryKey = () => {
+    return [`/sapodata/health`] as const;
+    }
+
+    
+export const getSapControllerHealthCheckQueryOptions = <TData = Awaited<ReturnType<typeof sapControllerHealthCheck>>, TError = unknown>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof sapControllerHealthCheck>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getSapControllerHealthCheckQueryKey();
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof sapControllerHealthCheck>>> = ({ signal }) => sapControllerHealthCheck({ signal, ...requestOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof sapControllerHealthCheck>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type SapControllerHealthCheckQueryResult = NonNullable<Awaited<ReturnType<typeof sapControllerHealthCheck>>>
+export type SapControllerHealthCheckQueryError = unknown
+
+
+
+export function useSapControllerHealthCheck<TData = Awaited<ReturnType<typeof sapControllerHealthCheck>>, TError = unknown>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof sapControllerHealthCheck>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+  
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getSapControllerHealthCheckQueryOptions(options)
+
+  const query = useQuery(queryOptions ) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+export type sapControllerGetApiDocsResponse200 = {
+  data: null
+  status: 200
+}
+    
+export type sapControllerGetApiDocsResponseComposite = sapControllerGetApiDocsResponse200;
+    
+export type sapControllerGetApiDocsResponse = sapControllerGetApiDocsResponseComposite & {
+  headers: Headers;
+}
+
+export const getSapControllerGetApiDocsUrl = () => {
+
+
+  
+
+  return `/sapodata/docs`
+}
+
+export const sapControllerGetApiDocs = async ( options?: RequestInit): Promise<sapControllerGetApiDocsResponse> => {
+  
+  return customFetch<sapControllerGetApiDocsResponse>(getSapControllerGetApiDocsUrl(),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+);}
+
+
+
+export const getSapControllerGetApiDocsQueryKey = () => {
+    return [`/sapodata/docs`] as const;
+    }
+
+    
+export const getSapControllerGetApiDocsQueryOptions = <TData = Awaited<ReturnType<typeof sapControllerGetApiDocs>>, TError = unknown>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof sapControllerGetApiDocs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getSapControllerGetApiDocsQueryKey();
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof sapControllerGetApiDocs>>> = ({ signal }) => sapControllerGetApiDocs({ signal, ...requestOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof sapControllerGetApiDocs>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type SapControllerGetApiDocsQueryResult = NonNullable<Awaited<ReturnType<typeof sapControllerGetApiDocs>>>
+export type SapControllerGetApiDocsQueryError = unknown
+
+
+
+export function useSapControllerGetApiDocs<TData = Awaited<ReturnType<typeof sapControllerGetApiDocs>>, TError = unknown>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof sapControllerGetApiDocs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+  
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getSapControllerGetApiDocsQueryOptions(options)
+
+  const query = useQuery(queryOptions ) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}

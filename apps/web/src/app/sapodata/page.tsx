@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import EntitySetsViewer from './components/EntitySetsViewer';
 
 interface ODataService {
   ServiceUrl: string | URL;
@@ -31,7 +32,7 @@ interface SapODataResponse {
 }
 
 export default function SapODataExplorer() {
-  const [activeTab, setActiveTab] = useState<'services' | 'metadata' | 'data'>('services');
+  const [activeTab, setActiveTab] = useState<'services' | 'metadata' | 'data' | 'entitysets'>('services');
   const [loading, setLoading] = useState(false);
   const [services, setServices] = useState<ODataService[]>([]);
   const [filteredServices, setFilteredServices] = useState<ODataService[]>([]);
@@ -195,6 +196,43 @@ export default function SapODataExplorer() {
       return date.toLocaleDateString();
     } catch {
       return 'Invalid Date';
+    }
+  };
+
+  // Helper function to extract the correct service name from service URL
+  const getServiceNameFromUrl = (service: ODataService): string => {
+    try {
+      // Extract service name from ServiceUrl path
+      // Example: "/sap/opu/odata/sap/API_BUSINESS_PARTNER/" -> "API_BUSINESS_PARTNER"
+      const url = new URL(service.ServiceUrl);
+      const pathParts = url.pathname.split('/').filter(part => part.length > 0);
+      
+      // Look for the pattern: sap/opu/odata/sap/SERVICE_NAME
+      // Find the last 'sap' in the path (there are usually two)
+      let lastSapIndex = -1;
+      for (let i = pathParts.length - 1; i >= 0; i--) {
+        if (pathParts[i].toLowerCase() === 'sap') {
+          lastSapIndex = i;
+          break;
+        }
+      }
+      
+      // If we found 'sap' and there's a part after it, that's our service name
+      if (lastSapIndex >= 0 && lastSapIndex < pathParts.length - 1) {
+        return pathParts[lastSapIndex + 1];
+      }
+      
+      // Fallback: use the last non-empty path segment
+      const lastPart = pathParts[pathParts.length - 1];
+      if (lastPart && lastPart.toLowerCase() !== 'sap') {
+        return lastPart;
+      }
+      
+      // Final fallback: use TechnicalServiceName
+      return service.TechnicalServiceName;
+    } catch (error) {
+      console.warn('Failed to extract service name from URL, using TechnicalServiceName:', error);
+      return service.TechnicalServiceName;
     }
   };
 
@@ -376,6 +414,22 @@ export default function SapODataExplorer() {
             >
               📊 Data Explorer
             </button>
+            <button
+              onClick={() => setActiveTab('entitysets')}
+              disabled={!selectedService}
+              style={{
+                padding: '12px 16px',
+                backgroundColor: activeTab === 'entitysets' ? '#eff6ff' : 'transparent',
+                borderBottom: activeTab === 'entitysets' ? '2px solid #3b82f6' : 'none',
+                border: 'none',
+                cursor: selectedService ? 'pointer' : 'not-allowed',
+                fontSize: '14px',
+                fontWeight: activeTab === 'entitysets' ? '600' : '400',
+                color: selectedService ? (activeTab === 'entitysets' ? '#3b82f6' : '#6b7280') : '#d1d5db'
+              }}
+            >
+              🗂️ Entity Sets
+            </button>
           </div>
         </div>
 
@@ -536,6 +590,25 @@ export default function SapODataExplorer() {
                           >
                             📊 Data
                           </button>
+                          <button
+                            onClick={() => {
+                              setSelectedService(service);
+                              setActiveTab('entitysets');
+                            }}
+                            disabled={loading}
+                            style={{
+                              padding: '6px 12px',
+                              backgroundColor: '#3b82f6',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '6px',
+                              cursor: loading ? 'not-allowed' : 'pointer',
+                              fontSize: '12px',
+                              opacity: loading ? 0.6 : 1
+                            }}
+                          >
+                            🗂️ Entity Sets
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -648,6 +721,15 @@ export default function SapODataExplorer() {
               )}
             </div>
           </div>
+        )}
+
+        {/* Entity Sets Tab */}
+        {activeTab === 'entitysets' && selectedService && (
+          <EntitySetsViewer
+            serviceName={getServiceNameFromUrl(selectedService)}
+            connectionInfo={connectionInfo}
+            onBack={() => setActiveTab('services')}
+          />
         )}
       </div>
     </div>

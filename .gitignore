@@ -28,7 +28,7 @@ packages/**/.env.*
 # IDE & OS
 .vscode/*
 !.vscode/tasks.json
-!.vscode/extensions.json
+!.vscode/launch.json
 .DS_Store
 
 # Lockfiles: nur eines im Root!

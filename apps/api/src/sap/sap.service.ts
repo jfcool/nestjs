@@ -307,4 +307,97 @@ export class SapService {
     const normalized = content.trim().toLowerCase();
     return normalized.startsWith('<!doctype') || normalized.startsWith('<html');
   }
+
+  /**
+   * Parse OData metadata XML to extract entity sets and their properties
+   */
+  parseMetadata(xmlContent: string): any {
+    try {
+      // Simple XML parsing to extract entity sets
+      // This is a basic implementation - for production use a proper XML parser
+      const entitySets: any[] = [];
+      const entityTypes: any[] = [];
+      
+      // Extract EntitySets
+      const entitySetRegex = /<EntitySet[^>]*Name="([^"]*)"[^>]*EntityType="([^"]*)"[^>]*\/?>|<EntitySet[^>]*EntityType="([^"]*)"[^>]*Name="([^"]*)"[^>]*\/?>/g;
+      let match;
+      
+      while ((match = entitySetRegex.exec(xmlContent)) !== null) {
+        const entitySetName = match[1] || match[4];
+        const entityTypeName = match[2] || match[3];
+        
+        if (entitySetName && entityTypeName) {
+          entitySets.push({
+            name: entitySetName,
+            entityType: entityTypeName.split('.').pop(), // Remove namespace
+            fullEntityType: entityTypeName
+          });
+        }
+      }
+
+      // Extract EntityTypes and their properties
+      const entityTypeRegex = /<EntityType[^>]*Name="([^"]*)"[^>]*>([\s\S]*?)<\/EntityType>/g;
+      
+      while ((match = entityTypeRegex.exec(xmlContent)) !== null) {
+        const entityTypeName = match[1];
+        const entityTypeContent = match[2];
+        
+        // Extract properties
+        const properties: any[] = [];
+        const propertyRegex = /<Property[^>]*Name="([^"]*)"[^>]*Type="([^"]*)"[^>]*(?:Nullable="([^"]*)")?[^>]*\/?>/g;
+        let propMatch;
+        
+        while ((propMatch = propertyRegex.exec(entityTypeContent)) !== null) {
+          properties.push({
+            name: propMatch[1],
+            type: propMatch[2],
+            nullable: propMatch[3] !== 'false'
+          });
+        }
+
+        // Extract key properties
+        const keyProperties: string[] = [];
+        const keyRegex = /<Key>([\s\S]*?)<\/Key>/;
+        const keyMatch = keyRegex.exec(entityTypeContent);
+        
+        if (keyMatch) {
+          const keyPropertyRegex = /<PropertyRef[^>]*Name="([^"]*)"[^>]*\/?>/g;
+          let keyPropMatch;
+          
+          while ((keyPropMatch = keyPropertyRegex.exec(keyMatch[1])) !== null) {
+            keyProperties.push(keyPropMatch[1]);
+          }
+        }
+
+        entityTypes.push({
+          name: entityTypeName,
+          properties,
+          keyProperties
+        });
+      }
+
+      // Combine entity sets with their type information
+      const enrichedEntitySets = entitySets.map(entitySet => {
+        const entityType = entityTypes.find(type => type.name === entitySet.entityType);
+        return {
+          ...entitySet,
+          properties: entityType?.properties || [],
+          keyProperties: entityType?.keyProperties || []
+        };
+      });
+
+      return {
+        entitySets: enrichedEntitySets,
+        entityTypes,
+        summary: {
+          totalEntitySets: entitySets.length,
+          totalEntityTypes: entityTypes.length,
+          entitySetNames: entitySets.map(es => es.name)
+        }
+      };
+    } catch (error) {
+      this.logger.error('Failed to parse metadata XML:', error);
+      throw new Error(`Failed to parse metadata: ${error.message}`);
+    }
+  }
 }
