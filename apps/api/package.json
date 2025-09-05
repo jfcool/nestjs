@@ -3,6 +3,8 @@
   "private": true,
   "scripts": {
     "dev": "nest start --watch",
+    "debug": "pnpm exec nest start --debug --watch",
+    "debug:brk": "pnpm exec nest start --debug-brk --watch",
     "build": "nest build",
     "start": "node dist/main.js"
   },
