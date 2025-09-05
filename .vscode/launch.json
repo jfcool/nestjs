@@ -29,33 +29,12 @@
       "outFiles": ["${workspaceFolder}/apps/api/dist/**/*.js"],
       "skipFiles": ["<node_internals>/**"],
       "runtimeArgs": ["--inspect=9229", "-r", "ts-node/register", "-r", "tsconfig-paths/register"]
-    },
-    {
-      "name": "Launch Next.js UI (No Debug)",
-      "type": "node",
-      "request": "launch",
-      "program": "${workspaceFolder}/node_modules/.bin/next",
-      "args": ["dev", "--turbopack"],
-      "cwd": "${workspaceFolder}/apps/web",
-      "env": {
-        "NODE_ENV": "development"
-      },
-      "console": "integratedTerminal",
-      "internalConsoleOptions": "neverOpen",
-      "skipFiles": ["<node_internals>/**"],
-      "windows": {
-        "program": "${workspaceFolder}/node_modules/.bin/next.cmd"
-      }
     }
   ],
   "compounds": [
     {
       "name": "Debug Full Stack (Attach Mode)",
       "configurations": ["Attach to NestJS API"]
-    },
-    {
-      "name": "Debug Full Stack (Launch Mode)",
-      "configurations": ["Launch NestJS API (Direct - Fallback)", "Launch Next.js UI (No Debug)"]
     }
   ]
 }

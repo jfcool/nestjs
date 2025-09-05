@@ -17,12 +17,18 @@ Both server and client are now properly configured for debugging in the pnpm mon
    - Select **"Attach to NestJS API"**
    - Click the green play button or press `F5`
 
-### Alternative: VSCode Debug Panel (Additional Options)
-Additional launch configurations available:
+### Alternative: VSCode Options
+
+**Launch Configurations:**
 - **"Launch NestJS API (Direct - Fallback)"** - Direct TypeScript execution with ts-node
-- **"Launch Next.js UI (No Debug)"** - Start the Next.js frontend without debugging (avoids VSCode flag issues)
 - **"Debug Full Stack (Attach Mode)"** - Attach to running API only
-- **"Debug Full Stack (Launch Mode)"** - Launch both API and UI directly
+
+**VSCode Tasks (Recommended for UI):**
+- **"Start Frontend"** - Start the Next.js UI using pnpm (avoids VSCode debugging issues)
+- **"Start API (Debug Ready)"** - Start API in debug mode, ready for attachment
+- **"Start API (No Debug)"** - Start API without debugging
+
+To run tasks: `Ctrl+Shift+P` → "Tasks: Run Task" → Select task
 
 ### Option 3: Terminal Commands Only
 ```bash
@@ -47,21 +53,27 @@ cd apps/web && pnpm run dev
 - **Usage**: One-click launch from VSCode (fallback only)
 - **Benefits**: Direct debugging without compilation
 
-### 3. Launch Next.js UI (No Debug) - NEW
-- **Type**: Direct Next.js launch
-- **Runtime**: Next.js CLI directly (bypasses pnpm to avoid VSCode flag issues)
-- **Usage**: One-click launch of the frontend without debugging
-- **Benefits**: Starts UI with hot reload, avoids VSCode's automatic flag injection
-
-### 4. Debug Full Stack (Attach Mode)
+### 3. Debug Full Stack (Attach Mode)
 - **Type**: Compound configuration
 - **Usage**: Attaches to running API process
 - **Benefits**: Clean separation of concerns, debugger only when needed
 
-### 5. Debug Full Stack (Launch Mode) - NEW
-- **Type**: Compound configuration
-- **Usage**: Launches both API and UI directly
-- **Benefits**: One-click full-stack debugging setup
+## 🛠️ VSCode Tasks (Recommended for UI)
+
+### 1. Start Frontend
+- **Command**: `pnpm run dev` in apps/web
+- **Usage**: `Ctrl+Shift+P` → "Tasks: Run Task" → "Start Frontend"
+- **Benefits**: Avoids VSCode debugging flag issues, clean UI startup
+
+### 2. Start API (Debug Ready)
+- **Command**: `pnpm run debug` in apps/api
+- **Usage**: `Ctrl+Shift+P` → "Tasks: Run Task" → "Start API (Debug Ready)"
+- **Benefits**: Starts API ready for debugger attachment
+
+### 3. Start API (No Debug)
+- **Command**: `pnpm run dev` in apps/api
+- **Usage**: `Ctrl+Shift+P` → "Tasks: Run Task" → "Start API (No Debug)"
+- **Benefits**: Starts API without debugging capabilities
 
 ## 🔍 SAP Connection Debug Features
 
