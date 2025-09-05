@@ -20,7 +20,7 @@ Both server and client are now properly configured for debugging in the pnpm mon
 ### Alternative: VSCode Debug Panel (Additional Options)
 Additional launch configurations available:
 - **"Launch NestJS API (Direct - Fallback)"** - Direct TypeScript execution with ts-node
-- **"Launch Next.js UI (Direct)"** - Start the Next.js frontend directly in debug mode
+- **"Launch Next.js UI (No Debug)"** - Start the Next.js frontend without debugging (avoids VSCode flag issues)
 - **"Debug Full Stack (Attach Mode)"** - Attach to running API only
 - **"Debug Full Stack (Launch Mode)"** - Launch both API and UI directly
 
@@ -47,11 +47,11 @@ cd apps/web && pnpm run dev
 - **Usage**: One-click launch from VSCode (fallback only)
 - **Benefits**: Direct debugging without compilation
 
-### 3. Launch Next.js UI (Direct) - NEW
+### 3. Launch Next.js UI (No Debug) - NEW
 - **Type**: Direct Next.js launch
-- **Runtime**: pnpm with Next.js dev server
-- **Usage**: One-click launch of the frontend in debug mode
-- **Benefits**: Direct UI debugging with hot reload
+- **Runtime**: Next.js CLI directly (bypasses pnpm to avoid VSCode flag issues)
+- **Usage**: One-click launch of the frontend without debugging
+- **Benefits**: Starts UI with hot reload, avoids VSCode's automatic flag injection
 
 ### 4. Debug Full Stack (Attach Mode)
 - **Type**: Compound configuration
