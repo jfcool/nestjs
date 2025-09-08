@@ -1,9 +1,12 @@
 'use client';
 
-import React, { useEffect } from 'react';
-import { Modal, Form, Input, Button, message } from 'antd';
+import React, { useEffect, useState } from 'react';
 import { useUpdateUserWithBody, UserDto, CreateUserDto, getGetUsersQueryKey } from '@acme/api-types';
 import { useQueryClient } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
 
 interface EditUserModalProps {
   open: boolean;
@@ -12,40 +15,85 @@ interface EditUserModalProps {
 }
 
 export default function EditUserModal({ open, onCancel, user }: EditUserModalProps) {
-  const [form] = Form.useForm();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [nameError, setNameError] = useState('');
+  const [emailError, setEmailError] = useState('');
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   
   const updateUserMutation = useUpdateUserWithBody({
     mutation: {
       onSuccess: () => {
-        message.success('User updated successfully!');
+        toast({
+          title: "Erfolg",
+          description: "Benutzer erfolgreich aktualisiert!",
+        });
         queryClient.invalidateQueries({ queryKey: getGetUsersQueryKey() });
         onCancel();
-        form.resetFields();
+        resetForm();
       },
       onError: (error) => {
         console.error('Error updating user:', error);
-        message.error('Failed to update user. Please try again.');
+        toast({
+          title: "Fehler",
+          description: "Fehler beim Aktualisieren des Benutzers. Bitte versuchen Sie es erneut.",
+          variant: "destructive",
+        });
       },
     },
   });
 
+  const resetForm = () => {
+    setName('');
+    setEmail('');
+    setNameError('');
+    setEmailError('');
+  };
+
   useEffect(() => {
     if (open && user) {
-      // Small delay to ensure modal is fully rendered
-      setTimeout(() => {
-        form.setFieldsValue({
-          name: user.name,
-          email: user.email || '',
-        });
-      }, 100);
+      setName(user.name);
+      setEmail(user.email || '');
+      setNameError('');
+      setEmailError('');
     } else if (open && !user) {
-      form.resetFields();
+      resetForm();
     }
-  }, [user, open, form]);
+  }, [user, open]);
 
-  const handleSubmit = async (values: CreateUserDto) => {
-    if (!user) return;
+  const validateForm = () => {
+    let isValid = true;
+    
+    if (!name.trim()) {
+      setNameError('Bitte geben Sie einen Namen ein');
+      isValid = false;
+    } else if (name.trim().length < 2) {
+      setNameError('Name muss mindestens 2 Zeichen lang sein');
+      isValid = false;
+    } else {
+      setNameError('');
+    }
+
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setEmailError('Bitte geben Sie eine gültige E-Mail-Adresse ein');
+      isValid = false;
+    } else {
+      setEmailError('');
+    }
+
+    return isValid;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!user || !validateForm()) return;
+    
+    const values: CreateUserDto = {
+      name: name.trim(),
+      email: email.trim() || null,
+    };
     
     try {
       await updateUserMutation.mutateAsync({
@@ -58,60 +106,64 @@ export default function EditUserModal({ open, onCancel, user }: EditUserModalPro
   };
 
   const handleCancel = () => {
-    form.resetFields();
+    resetForm();
     onCancel();
   };
 
   return (
-    <Modal
-      title="Edit User"
-      open={open}
-      onCancel={handleCancel}
-      footer={null}
-      forceRender
-    >
-      <Form
-        form={form}
-        layout="vertical"
-        onFinish={handleSubmit}
-        preserve={false}
-      >
-        <Form.Item
-          label="Name"
-          name="name"
-          rules={[
-            { required: true, message: 'Please enter a name' },
-            { min: 2, message: 'Name must be at least 2 characters' },
-          ]}
-        >
-          <Input placeholder="Enter user name" />
-        </Form.Item>
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleCancel()}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>Benutzer bearbeiten</DialogTitle>
+        </DialogHeader>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <label htmlFor="edit-name" className="text-sm font-medium">
+              Name
+            </label>
+            <Input
+              id="edit-name"
+              placeholder="Benutzername eingeben"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className={nameError ? 'border-destructive' : ''}
+            />
+            {nameError && (
+              <p className="text-sm text-destructive">{nameError}</p>
+            )}
+          </div>
 
-        <Form.Item
-          label="Email"
-          name="email"
-          rules={[
-            { type: 'email', message: 'Please enter a valid email' },
-          ]}
-        >
-          <Input placeholder="Enter user email (optional)" />
-        </Form.Item>
+          <div className="space-y-2">
+            <label htmlFor="edit-email" className="text-sm font-medium">
+              E-Mail
+            </label>
+            <Input
+              id="edit-email"
+              type="email"
+              placeholder="Benutzer E-Mail eingeben (optional)"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={emailError ? 'border-destructive' : ''}
+            />
+            {emailError && (
+              <p className="text-sm text-destructive">{emailError}</p>
+            )}
+          </div>
 
-        <Form.Item className="mb-0 flex justify-end">
-          <div className="space-x-2">
-            <Button onClick={handleCancel}>
-              Cancel
+          <DialogFooter className="gap-2">
+            <Button type="button" variant="outline" onClick={handleCancel}>
+              Abbrechen
             </Button>
             <Button 
-              type="primary" 
-              htmlType="submit"
-              loading={updateUserMutation.isPending}
+              type="submit" 
+              disabled={updateUserMutation.isPending}
             >
-              Update User
+              {updateUserMutation.isPending ? 'Aktualisiere...' : 'Benutzer aktualisieren'}
             </Button>
-          </div>
-        </Form.Item>
-      </Form>
-    </Modal>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

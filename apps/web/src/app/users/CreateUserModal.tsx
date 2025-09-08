@@ -1,10 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Modal, Form, Input, Button, message } from 'antd';
-import { UserOutlined, MailOutlined } from '@ant-design/icons';
+import { User, Mail } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCreateUser, getGetUsersQueryKey } from '@acme/api-types';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
 
 interface CreateUserModalProps {
   visible: boolean;
@@ -12,100 +15,144 @@ interface CreateUserModalProps {
 }
 
 export default function CreateUserModal({ visible, onClose }: CreateUserModalProps) {
-  const [form] = Form.useForm();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [nameError, setNameError] = useState('');
+  const [emailError, setEmailError] = useState('');
   const qc = useQueryClient();
+  const { toast } = useToast();
   
   const createUser = useCreateUser({
     mutation: {
       onSuccess: () => {
         qc.invalidateQueries({ queryKey: getGetUsersQueryKey() as any });
-        form.resetFields();
+        resetForm();
         onClose();
-        message.success('Benutzer erfolgreich erstellt!');
+        toast({
+          title: "Erfolg",
+          description: "Benutzer erfolgreich erstellt!",
+        });
       },
       onError: (err) => {
-        message.error(err instanceof Error ? err.message : 'Fehler beim Erstellen des Benutzers');
+        toast({
+          title: "Fehler",
+          description: err instanceof Error ? err.message : 'Fehler beim Erstellen des Benutzers',
+          variant: "destructive",
+        });
       },
     },
   });
 
-  const handleSubmit = async (values: { name: string; email?: string }) => {
+  const resetForm = () => {
+    setName('');
+    setEmail('');
+    setNameError('');
+    setEmailError('');
+  };
+
+  const validateForm = () => {
+    let isValid = true;
+    
+    if (!name.trim()) {
+      setNameError('Bitte geben Sie einen Namen ein!');
+      isValid = false;
+    } else if (name.trim().length < 2) {
+      setNameError('Name muss mindestens 2 Zeichen lang sein!');
+      isValid = false;
+    } else {
+      setNameError('');
+    }
+
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setEmailError('Bitte geben Sie eine gültige E-Mail-Adresse ein!');
+      isValid = false;
+    } else {
+      setEmailError('');
+    }
+
+    return isValid;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
     createUser.mutate({
       data: {
-        name: values.name.trim(),
-        email: values.email?.trim() || null,
+        name: name.trim(),
+        email: email.trim() || null,
       },
     });
   };
 
   const handleCancel = () => {
-    form.resetFields();
+    resetForm();
     onClose();
   };
 
   return (
-    <Modal
-      title={
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <UserOutlined />
-          <span>Neuen Benutzer erstellen</span>
-        </div>
-      }
-      open={visible}
-      onCancel={handleCancel}
-      footer={null}
-      width={500}
-    >
-      <Form
-        form={form}
-        layout="vertical"
-        onFinish={handleSubmit}
-        style={{ marginTop: '20px' }}
-      >
-        <Form.Item
-          label="Name"
-          name="name"
-          rules={[
-            { required: true, message: 'Bitte geben Sie einen Namen ein!' },
-            { min: 2, message: 'Name muss mindestens 2 Zeichen lang sein!' }
-          ]}
-        >
-          <Input
-            prefix={<UserOutlined />}
-            placeholder="z.B. Max Mustermann"
-            size="large"
-          />
-        </Form.Item>
+    <Dialog open={visible} onOpenChange={(open) => !open && handleCancel()}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <User className="h-5 w-5" />
+            Neuen Benutzer erstellen
+          </DialogTitle>
+        </DialogHeader>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <label htmlFor="name" className="text-sm font-medium">
+              Name
+            </label>
+            <div className="relative">
+              <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="name"
+                placeholder="z.B. Max Mustermann"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className={`pl-10 ${nameError ? 'border-destructive' : ''}`}
+              />
+            </div>
+            {nameError && (
+              <p className="text-sm text-destructive">{nameError}</p>
+            )}
+          </div>
 
-        <Form.Item
-          label="E-Mail-Adresse (optional)"
-          name="email"
-          rules={[
-            { type: 'email', message: 'Bitte geben Sie eine gültige E-Mail-Adresse ein!' }
-          ]}
-        >
-          <Input
-            prefix={<MailOutlined />}
-            placeholder="max.mustermann@example.com"
-            size="large"
-          />
-        </Form.Item>
+          <div className="space-y-2">
+            <label htmlFor="email" className="text-sm font-medium">
+              E-Mail-Adresse (optional)
+            </label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="email"
+                type="email"
+                placeholder="max.mustermann@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={`pl-10 ${emailError ? 'border-destructive' : ''}`}
+              />
+            </div>
+            {emailError && (
+              <p className="text-sm text-destructive">{emailError}</p>
+            )}
+          </div>
 
-        <Form.Item style={{ marginBottom: 0, marginTop: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-            <Button onClick={handleCancel}>
+          <DialogFooter className="gap-2">
+            <Button type="button" variant="outline" onClick={handleCancel}>
               Abbrechen
             </Button>
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={createUser.isPending}
-            >
-              Benutzer erstellen
+            <Button type="submit" disabled={createUser.isPending}>
+              {createUser.isPending ? 'Erstelle...' : 'Benutzer erstellen'}
             </Button>
-          </div>
-        </Form.Item>
-      </Form>
-    </Modal>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

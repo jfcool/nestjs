@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import Providers from './providers';
 import Link from 'next/link';
+import { Toaster } from '@/components/ui/toaster';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -21,50 +22,24 @@ export default function RootLayout({
       <body className={inter.className}>
         <Providers>
           {/* Navigation Header */}
-          <nav style={{ 
-            backgroundColor: '#1f2937', 
-            padding: '1rem', 
-            marginBottom: '1rem',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-          }}>
-            <div style={{ 
-              maxWidth: '1200px', 
-              margin: '0 auto', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '2rem' 
-            }}>
+          <nav className="bg-gray-800 p-4 mb-4 shadow-sm">
+            <div className="max-w-6xl mx-auto flex items-center gap-8">
               <Link 
                 href="/" 
-                style={{ 
-                  color: 'white', 
-                  fontSize: '1.25rem', 
-                  fontWeight: 'bold', 
-                  textDecoration: 'none' 
-                }}
+                className="text-white text-xl font-bold no-underline hover:text-blue-200 transition-colors"
               >
                 🏠 NestJS App
               </Link>
-              <div style={{ display: 'flex', gap: '1rem' }}>
+              <div className="flex gap-4">
                 <Link 
                   href="/users" 
-                  style={{ 
-                    color: '#93c5fd', 
-                    textDecoration: 'none',
-                    padding: '0.5rem 1rem',
-                    borderRadius: '0.375rem'
-                  }}
+                  className="text-blue-300 no-underline px-4 py-2 rounded-md hover:bg-gray-700 hover:text-blue-200 transition-colors"
                 >
                   👥 Users
                 </Link>
                 <Link 
                   href="/sapodata" 
-                  style={{ 
-                    color: '#93c5fd', 
-                    textDecoration: 'none',
-                    padding: '0.5rem 1rem',
-                    borderRadius: '0.375rem'
-                  }}
+                  className="text-blue-300 no-underline px-4 py-2 rounded-md hover:bg-gray-700 hover:text-blue-200 transition-colors"
                 >
                   🔗 SAP OData
                 </Link>
@@ -72,6 +47,7 @@ export default function RootLayout({
             </div>
           </nav>
           {children}
+          <Toaster />
         </Providers>
       </body>
     </html>
