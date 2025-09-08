@@ -16,6 +16,8 @@ import {
   Statistic,
   Avatar,
   Tooltip,
+  Modal,
+  message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -31,8 +33,10 @@ import {
   ThunderboltOutlined,
 } from '@ant-design/icons';
 import type { UserDto } from '@acme/api-types';
-import { useGetUsers } from '@acme/api-types';
+import { useGetUsers, useDeleteUserCustom, getGetUsersQueryKey } from '@acme/api-types';
 import CreateUserModal from './CreateUserModal';
+import EditUserModal from './EditUserModal';
+import { useQueryClient } from '@tanstack/react-query';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
@@ -42,6 +46,40 @@ export default function UsersPage() {
   const users = (data?.data as UserDto[]) ?? [];
   const [searchText, setSearchText] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserDto | null>(null);
+  const queryClient = useQueryClient();
+
+  const deleteUserMutation = useDeleteUserCustom({
+    mutation: {
+      onSuccess: () => {
+        message.success('User deleted successfully!');
+        queryClient.invalidateQueries({ queryKey: getGetUsersQueryKey() });
+      },
+      onError: (error: any) => {
+        console.error('Error deleting user:', error);
+        message.error('Failed to delete user. Please try again.');
+      },
+    },
+  });
+
+  const handleEditUser = (user: UserDto) => {
+    setSelectedUser(user);
+    setEditModalVisible(true);
+  };
+
+  const handleDeleteUser = (user: UserDto) => {
+    Modal.confirm({
+      title: 'Delete User',
+      content: `Are you sure you want to delete user "${user.name}"? This action cannot be undone.`,
+      okText: 'Delete',
+      okType: 'danger',
+      cancelText: 'Cancel',
+      onOk: () => {
+        deleteUserMutation.mutate({ id: user.id });
+      },
+    });
+  };
 
   // Filter users based on search text
   const filteredUsers = React.useMemo(() => {
@@ -171,6 +209,7 @@ export default function UsersPage() {
               size="small"
               icon={<EditOutlined />}
               style={{ color: '#1890ff' }}
+              onClick={() => handleEditUser(user)}
             />
           </Tooltip>
           <Tooltip title="Löschen">
@@ -179,6 +218,8 @@ export default function UsersPage() {
               size="small"
               icon={<DeleteOutlined />}
               style={{ color: '#ff4d4f' }}
+              onClick={() => handleDeleteUser(user)}
+              loading={deleteUserMutation.isPending}
             />
           </Tooltip>
         </Space>
@@ -361,6 +402,16 @@ export default function UsersPage() {
       <CreateUserModal 
         visible={modalVisible} 
         onClose={() => setModalVisible(false)} 
+      />
+
+      {/* Edit User Modal */}
+      <EditUserModal
+        open={editModalVisible}
+        onCancel={() => {
+          setEditModalVisible(false);
+          setSelectedUser(null);
+        }}
+        user={selectedUser}
       />
     </div>
   );
