@@ -36,6 +36,7 @@ import type { UserDto } from '@acme/api-types';
 import { useGetUsers, useDeleteUserCustom, getGetUsersQueryKey } from '@acme/api-types';
 import CreateUserModal from './CreateUserModal';
 import EditUserModal from './EditUserModal';
+import ConfirmDeleteModal from './ConfirmDeleteModal';
 import { useQueryClient } from '@tanstack/react-query';
 
 const { Title, Text } = Typography;
@@ -47,7 +48,9 @@ export default function UsersPage() {
   const [searchText, setSearchText] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserDto | null>(null);
+  const [userToDelete, setUserToDelete] = useState<UserDto | null>(null);
   const queryClient = useQueryClient();
 
   const deleteUserMutation = useDeleteUserCustom({
@@ -69,16 +72,21 @@ export default function UsersPage() {
   };
 
   const handleDeleteUser = (user: UserDto) => {
-    Modal.confirm({
-      title: 'Delete User',
-      content: `Are you sure you want to delete user "${user.name}"? This action cannot be undone.`,
-      okText: 'Delete',
-      okType: 'danger',
-      cancelText: 'Cancel',
-      onOk: () => {
-        deleteUserMutation.mutate({ id: user.id });
-      },
-    });
+    setUserToDelete(user);
+    setDeleteModalVisible(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (userToDelete) {
+      deleteUserMutation.mutate({ id: userToDelete.id });
+      setDeleteModalVisible(false);
+      setUserToDelete(null);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteModalVisible(false);
+    setUserToDelete(null);
   };
 
   // Filter users based on search text
@@ -412,6 +420,15 @@ export default function UsersPage() {
           setSelectedUser(null);
         }}
         user={selectedUser}
+      />
+
+      {/* Confirm Delete Modal */}
+      <ConfirmDeleteModal
+        open={deleteModalVisible}
+        user={userToDelete}
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+        loading={deleteUserMutation.isPending}
       />
     </div>
   );

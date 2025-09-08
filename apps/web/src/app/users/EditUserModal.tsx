@@ -31,15 +31,16 @@ export default function EditUserModal({ open, onCancel, user }: EditUserModalPro
   });
 
   useEffect(() => {
-    if (open) {
-      if (user) {
+    if (open && user) {
+      // Small delay to ensure modal is fully rendered
+      setTimeout(() => {
         form.setFieldsValue({
           name: user.name,
           email: user.email || '',
         });
-      } else {
-        form.resetFields();
-      }
+      }, 100);
+    } else if (open && !user) {
+      form.resetFields();
     }
   }, [user, open, form]);
 
@@ -67,7 +68,7 @@ export default function EditUserModal({ open, onCancel, user }: EditUserModalPro
       open={open}
       onCancel={handleCancel}
       footer={null}
-      destroyOnHidden
+      forceRender
     >
       <Form
         form={form}

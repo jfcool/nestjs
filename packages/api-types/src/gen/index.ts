@@ -432,7 +432,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     }
     
 export type deleteUserResponse200 = {
-  data: _
+  data: null
   status: 200
 }
     
