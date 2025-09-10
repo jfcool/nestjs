@@ -19,18 +19,21 @@ interface EntitySetData {
   url: string;
   isJson: boolean;
   parsedContent?: any;
-}
-
-interface ConnectionInfo {
-  baseUrl: string;
-  username: string;
-  password: string;
-  rejectUnauthorized: boolean;
+  dataSource?: 'sap' | 'cache';
+  cacheInfo?: {
+    source: string;
+    timestamp: string;
+    servicePath: string;
+  };
+  sapInfo?: {
+    timestamp: string;
+    servicePath: string;
+  };
 }
 
 interface EntitySetsViewerProps {
   serviceName: string;
-  connectionInfo: ConnectionInfo;
+  connectionId: string;
   onBack: () => void;
 }
 
@@ -43,7 +46,7 @@ interface QueryOptions {
   expand?: string;
 }
 
-export default function EntitySetsViewer({ serviceName, connectionInfo, onBack }: EntitySetsViewerProps) {
+export default function EntitySetsViewer({ serviceName, connectionId, onBack }: EntitySetsViewerProps) {
   const [loading, setLoading] = useState(false);
   const [entitySets, setEntitySets] = useState<EntitySet[]>([]);
   const [filteredEntitySets, setFilteredEntitySets] = useState<EntitySet[]>([]);
@@ -84,12 +87,12 @@ export default function EntitySetsViewer({ serviceName, connectionInfo, onBack }
       setError(null);
 
       // First get the parsed metadata to extract entity sets
-      const response = await fetch(`http://localhost:3001/sapodata/service/${serviceName}/metadata/parsed`, {
+      const response = await fetch(`http://localhost:3001/sapodata/connection/${connectionId}/service/${serviceName}/metadata/parsed`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(connectionInfo),
+        body: JSON.stringify({}),
       });
 
       if (!response.ok) {
@@ -118,13 +121,12 @@ export default function EntitySetsViewer({ serviceName, connectionInfo, onBack }
       setError(null);
       setSelectedEntitySet(entitySet);
 
-      const response = await fetch(`http://localhost:3001/sapodata/service/${serviceName}/entityset/${entitySet.name}`, {
+      const response = await fetch(`http://localhost:3001/sapodata/connection/${connectionId}/service/${serviceName}/entityset/${entitySet.name}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          connectionInfo,
           options: queryOptions
         }),
       });
@@ -437,7 +439,7 @@ export default function EntitySetsViewer({ serviceName, connectionInfo, onBack }
               </div>
             ) : entitySetData.isJson && entitySetData.parsedContent ? (
               <div>
-                <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                   <span style={{ 
                     backgroundColor: '#dbeafe', 
                     color: '#1e40af', 
@@ -450,6 +452,47 @@ export default function EntitySetsViewer({ serviceName, connectionInfo, onBack }
                   <span style={{ fontSize: '12px', color: '#6b7280' }}>
                     {entitySetData.content.length.toLocaleString()} characters
                   </span>
+                  {/* Data Source Indicator */}
+                  {entitySetData.dataSource === 'cache' ? (
+                    <span style={{ 
+                      backgroundColor: '#fef3c7', 
+                      color: '#92400e', 
+                      padding: '4px 8px', 
+                      borderRadius: '12px', 
+                      fontSize: '12px',
+                      fontWeight: '500',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}>
+                      🗄️ From Cache
+                      {entitySetData.cacheInfo?.source && (
+                        <span style={{ fontSize: '10px', opacity: 0.8 }}>
+                          ({entitySetData.cacheInfo.source})
+                        </span>
+                      )}
+                    </span>
+                  ) : entitySetData.dataSource === 'sap' ? (
+                    <span style={{ 
+                      backgroundColor: '#dcfce7', 
+                      color: '#166534', 
+                      padding: '4px 8px', 
+                      borderRadius: '12px', 
+                      fontSize: '12px',
+                      fontWeight: '500',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}>
+                      🌐 From SAP System
+                    </span>
+                  ) : null}
+                  {/* Timestamp */}
+                  {(entitySetData.cacheInfo?.timestamp || entitySetData.sapInfo?.timestamp) && (
+                    <span style={{ fontSize: '10px', color: '#9ca3af' }}>
+                      Retrieved: {new Date(entitySetData.cacheInfo?.timestamp || entitySetData.sapInfo?.timestamp || '').toLocaleString()}
+                    </span>
+                  )}
                 </div>
                 <div style={{ 
                   backgroundColor: '#f3f4f6', 
@@ -484,7 +527,7 @@ export default function EntitySetsViewer({ serviceName, connectionInfo, onBack }
 
   useEffect(() => {
     fetchEntitySets();
-  }, [serviceName]);
+  }, [serviceName, connectionId]);
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>

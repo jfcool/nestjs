@@ -61,7 +61,7 @@ export function DataTable<T = any>({
     getRowId: (params: any) => params.data.id?.toString() || Math.random().toString(),
     rowHeight: 60, // Increased row height for better spacing
     headerHeight: 48, // Increased header height
-    theme: 'legacy', // Use legacy theme to avoid theming conflicts
+    theme: 'legacy' as const, // Use legacy theme to avoid theming conflicts
   }), [pagination, paginationPageSize]);
 
   return (

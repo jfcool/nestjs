@@ -6,6 +6,8 @@ import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
 import { SapModule } from './sap/sap.module';
 import { User } from './users/user.entity';
+import { Connection } from './sap/entities/sap-connection.entity';
+import { SapSecret } from './sap/entities/sap-secret.entity';
 import { seedUsers } from './users/seed-users';
 
 @Module({
@@ -17,7 +19,7 @@ import { seedUsers } from './users/seed-users';
       username: process.env.DB_USERNAME || 'postgres',
       password: process.env.DB_PASSWORD || 'joe',
       database: process.env.DB_NAME || 'nestjs_app',
-      entities: [User],
+      entities: [User, Connection, SapSecret],
       synchronize: process.env.NODE_ENV !== 'production', // Auto-create tables in development
       logging: process.env.NODE_ENV === 'development',
     }),

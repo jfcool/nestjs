@@ -17,6 +17,7 @@
     "typescript": "^5.9.2"
   },
   "dependencies": {
+    "@agentdb/sdk": "^1.1.19",
     "@nestjs/common": "^11.1.6",
     "@nestjs/core": "^11.1.6",
     "@nestjs/platform-express": "^11.1.6",

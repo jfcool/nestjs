@@ -2,6 +2,25 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Debug NestJS API (Recommended)",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/@nestjs/cli/bin/nest.js",
+      "args": ["start", "--debug", "--watch"],
+      "cwd": "${workspaceFolder}/apps/api",
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "console": "integratedTerminal",
+      "restart": true,
+      "protocol": "inspector",
+      "stopOnEntry": false,
+      "sourceMaps": true,
+      "skipFiles": ["<node_internals>/**"],
+      "preLaunchTask": "Build API (Clean)",
+      "runtimeArgs": ["--inspect=9229"]
+    },
+    {
       "name": "Attach to NestJS API",
       "type": "node",
       "request": "attach",
@@ -12,7 +31,7 @@
       "skipFiles": ["<node_internals>/**"]
     },
     {
-      "name": "Launch NestJS API (Direct - Fallback)",
+      "name": "Launch NestJS API (Direct TypeScript)",
       "type": "node",
       "request": "launch",
       "program": "${workspaceFolder}/apps/api/src/main.ts",
@@ -33,8 +52,8 @@
   ],
   "compounds": [
     {
-      "name": "Debug Full Stack (Attach Mode)",
-      "configurations": ["Attach to NestJS API"]
+      "name": "Debug Full Stack",
+      "configurations": ["Debug NestJS API (Recommended)"]
     }
   ]
 }

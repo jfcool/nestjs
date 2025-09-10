@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import EntitySetsViewer from './components/EntitySetsViewer';
 
 interface ODataService {
@@ -23,12 +24,33 @@ interface ConnectionInfo {
   rejectUnauthorized: boolean;
 }
 
+interface StoredConnection {
+  id: string;
+  name: string;
+  type: 'sap' | 'agentdb';
+  baseUrl: string;
+  username: string;
+  description?: string;
+  cacheConnectionName?: string;
+  isActive: boolean;
+}
+
 interface SapODataResponse {
   content: string;
   contentType: string;
   url: string;
   isJson: boolean;
   parsedContent?: any;
+  dataSource?: 'sap' | 'cache';
+  cacheInfo?: {
+    source: string;
+    timestamp: string;
+    servicePath: string;
+  };
+  sapInfo?: {
+    timestamp: string;
+    servicePath: string;
+  };
 }
 
 export default function SapODataExplorer() {
@@ -36,20 +58,34 @@ export default function SapODataExplorer() {
   const [loading, setLoading] = useState(false);
   const [services, setServices] = useState<ODataService[]>([]);
   const [filteredServices, setFilteredServices] = useState<ODataService[]>([]);
+  const [servicesResponse, setServicesResponse] = useState<SapODataResponse | null>(null);
   const [searchText, setSearchText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [selectedService, setSelectedService] = useState<ODataService | null>(null);
   const [showSettings, setShowSettings] = useState(true);
   const [metadata, setMetadata] = useState<string>('');
+  const [metadataResponse, setMetadataResponse] = useState<SapODataResponse | null>(null);
   const [serviceData, setServiceData] = useState<any>(null);
+  const [serviceDataResponse, setServiceDataResponse] = useState<SapODataResponse | null>(null);
 
-  // Connection settings
+  // Connection management
+  const [storedConnections, setStoredConnections] = useState<StoredConnection[]>([]);
+  const [selectedConnectionId, setSelectedConnectionId] = useState<string>('');
+  const [selectedConnection, setSelectedConnection] = useState<StoredConnection | null>(null);
+  const router = useRouter();
+
+  // Legacy connection settings (for backward compatibility)
   const [connectionInfo, setConnectionInfo] = useState<ConnectionInfo>({
     baseUrl: 'https://54.81.18.66:44301',
     username: 'Everest',
     password: 'Welcome1',
     rejectUnauthorized: false,
   });
+
+  // Load stored connections on component mount
+  useEffect(() => {
+    fetchStoredConnections();
+  }, []);
 
   // Filter services based on search text
   useEffect(() => {
@@ -73,9 +109,37 @@ export default function SapODataExplorer() {
     }
   }, [searchText, services]);
 
+  // Update selected connection when connectionId changes
+  useEffect(() => {
+    if (selectedConnectionId && storedConnections.length > 0) {
+      const connection = storedConnections.find(conn => conn.id === selectedConnectionId);
+      setSelectedConnection(connection || null);
+    } else {
+      setSelectedConnection(null);
+    }
+  }, [selectedConnectionId, storedConnections]);
+
+  const fetchStoredConnections = async () => {
+    try {
+      const response = await fetch('http://localhost:3002/sapodata/connections');
+      if (response.ok) {
+        const connections = await response.json();
+        setStoredConnections(connections);
+        
+        // Auto-select the first active connection if none is selected
+        if (!selectedConnectionId && connections.length > 0) {
+          const activeConnection = connections.find((conn: StoredConnection) => conn.isActive) || connections[0];
+          setSelectedConnectionId(activeConnection.id);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching stored connections:', error);
+    }
+  };
+
   const fetchServices = async () => {
-    if (!connectionInfo.baseUrl.trim() || !connectionInfo.username.trim() || !connectionInfo.password.trim()) {
-      setError('Please configure connection settings first');
+    if (!selectedConnection) {
+      setError('Please select a connection first');
       return;
     }
 
@@ -83,12 +147,12 @@ export default function SapODataExplorer() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('http://localhost:3001/sapodata/catalog', {
+      const response = await fetch(`http://localhost:3002/sapodata/connection/${selectedConnection.id}/catalog`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(connectionInfo),
+        body: JSON.stringify({}),
       });
 
       if (!response.ok) {
@@ -96,6 +160,9 @@ export default function SapODataExplorer() {
       }
 
       const result: SapODataResponse = await response.json();
+      
+      // Store the complete response for cache indicators
+      setServicesResponse(result);
       
       if (result.isJson && result.parsedContent?.d?.results) {
         setServices(result.parsedContent.d.results);
@@ -112,20 +179,24 @@ export default function SapODataExplorer() {
   };
 
   const fetchMetadata = async (service: ODataService) => {
+    if (!selectedConnection) {
+      setError('Please select a connection first');
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
 
-      const metadataPath  = new URL(service.MetadataUrl).pathname
+      const metadataPath = new URL(service.MetadataUrl).pathname;
       
-      const response = await fetch('http://localhost:3001/sapodata/metadata', {
+      const response = await fetch(`http://localhost:3002/sapodata/connection/${selectedConnection.id}/metadata`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           servicePath: metadataPath,
-          connectionInfo,
         }),
       });
 
@@ -135,6 +206,7 @@ export default function SapODataExplorer() {
 
       const result: SapODataResponse = await response.json();
       setMetadata(result.content);
+      setMetadataResponse(result);
       setSelectedService(service);
       setActiveTab('metadata');
     } catch (error) {
@@ -146,21 +218,24 @@ export default function SapODataExplorer() {
   };
 
   const fetchServiceData = async (service: ODataService) => {
+    if (!selectedConnection) {
+      setError('Please select a connection first');
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
 
-
-      const dataPath  = `${new URL(service.ServiceUrl).pathname}/`;
+      const dataPath = `${new URL(service.ServiceUrl).pathname}/`;
       
-      const response = await fetch('http://localhost:3001/sapodata/data', {
+      const response = await fetch(`http://localhost:3002/sapodata/connection/${selectedConnection.id}/data`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           servicePath: dataPath,
-          connectionInfo,
         }),
       });
 
@@ -170,6 +245,7 @@ export default function SapODataExplorer() {
 
       const result: SapODataResponse = await response.json();
       setServiceData(result.parsedContent);
+      setServiceDataResponse(result);
       setSelectedService(service);
       setActiveTab('data');
     } catch (error) {
@@ -249,7 +325,7 @@ export default function SapODataExplorer() {
       </div>
 
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px' }}>
-        {/* Connection Settings Card */}
+        {/* Connection Selection Card */}
         <div style={{ 
           backgroundColor: 'white', 
           borderRadius: '8px', 
@@ -260,94 +336,130 @@ export default function SapODataExplorer() {
           <div style={{ padding: '16px', borderBottom: '1px solid #e5e7eb' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h2 style={{ fontSize: '1.25rem', fontWeight: '600', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                ⚙️ Connection Settings
+                🔗 Connection Selection
               </h2>
-              <button
-                onClick={() => setShowSettings(!showSettings)}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: 'transparent',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '14px'
-                }}
-              >
-                {showSettings ? 'Hide' : 'Show'} Settings
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => router.push('/sapodata/connections')}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  ⚙️ Manage Connections
+                </button>
+                <button
+                  onClick={fetchStoredConnections}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: 'transparent',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  🔄 Refresh
+                </button>
+              </div>
             </div>
           </div>
-          {showSettings && (
-            <div style={{ padding: '16px' }}>
+          <div style={{ padding: '16px' }}>
+            {storedConnections.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '32px' }}>
+                <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔗</div>
+                <h3 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '8px' }}>
+                  No Connections Available
+                </h3>
+                <p style={{ color: '#6b7280', marginBottom: '16px' }}>
+                  Create your first SAP connection to start exploring OData services.
+                </p>
+                <button
+                  onClick={() => router.push('/sapodata/connections')}
+                  style={{
+                    padding: '12px 24px',
+                    backgroundColor: '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
+                >
+                  Create Connection
+                </button>
+              </div>
+            ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', marginBottom: '4px' }}>
-                    SAP System URL
+                    Select Connection
                   </label>
-                  <input
-                    type="text"
-                    placeholder="https://your-sap-system:44301"
-                    value={connectionInfo.baseUrl}
-                    onChange={(e) => setConnectionInfo(prev => ({ ...prev, baseUrl: e.target.value }))}
+                  <select
+                    value={selectedConnectionId}
+                    onChange={(e) => setSelectedConnectionId(e.target.value)}
                     style={{
                       width: '100%',
                       padding: '8px 12px',
                       border: '1px solid #d1d5db',
                       borderRadius: '6px',
-                      fontSize: '14px'
+                      fontSize: '14px',
+                      backgroundColor: 'white'
                     }}
-                  />
+                  >
+                    <option value="">Select a connection...</option>
+                    {storedConnections.map((connection) => (
+                      <option key={connection.id} value={connection.id}>
+                        {connection.name} ({connection.type?.toUpperCase() || 'UNKNOWN'}) - {connection.baseUrl}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', marginBottom: '4px' }}>
-                    Username
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="SAP Username"
-                    value={connectionInfo.username}
-                    onChange={(e) => setConnectionInfo(prev => ({ ...prev, username: e.target.value }))}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '14px'
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', marginBottom: '4px' }}>
-                    Password
-                  </label>
-                  <input
-                    type="password"
-                    placeholder="SAP Password"
-                    value={connectionInfo.password}
-                    onChange={(e) => setConnectionInfo(prev => ({ ...prev, password: e.target.value }))}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '14px'
-                    }}
-                  />
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <input
-                    type="checkbox"
-                    id="rejectUnauthorized"
-                    checked={connectionInfo.rejectUnauthorized}
-                    onChange={(e) => setConnectionInfo(prev => ({ ...prev, rejectUnauthorized: e.target.checked }))}
-                  />
-                  <label htmlFor="rejectUnauthorized" style={{ fontSize: '14px' }}>
-                    Validate SSL Certificates
-                  </label>
-                </div>
+                {selectedConnection && (
+                  <div style={{ 
+                    backgroundColor: '#f9fafb', 
+                    padding: '12px', 
+                    borderRadius: '6px',
+                    border: '1px solid #e5e7eb'
+                  }}>
+                    <h4 style={{ fontSize: '14px', fontWeight: '600', margin: '0 0 8px 0' }}>
+                      Connection Details
+                    </h4>
+                    <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                      <div><strong>Name:</strong> {selectedConnection.name}</div>
+                      <div><strong>Type:</strong> {selectedConnection.type?.toUpperCase() || 'UNKNOWN'}</div>
+                      <div><strong>URL:</strong> {selectedConnection.baseUrl}</div>
+                      <div><strong>Username:</strong> {selectedConnection.username}</div>
+                      {selectedConnection.description && (
+                        <div><strong>Description:</strong> {selectedConnection.description}</div>
+                      )}
+                      {selectedConnection.cacheConnectionName && (
+                        <div><strong>Cache Connection:</strong> {selectedConnection.cacheConnectionName}</div>
+                      )}
+                      <div>
+                        <strong>Status:</strong> 
+                        <span style={{ 
+                          color: selectedConnection.isActive ? '#059669' : '#dc2626',
+                          marginLeft: '4px'
+                        }}>
+                          {selectedConnection.isActive ? '✅ Active' : '❌ Inactive'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Error Alert */}
@@ -443,19 +555,66 @@ export default function SapODataExplorer() {
           }}>
             <div style={{ padding: '16px', borderBottom: '1px solid #e5e7eb' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: '600', margin: 0 }}>Available Services</h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <h2 style={{ fontSize: '1.25rem', fontWeight: '600', margin: 0 }}>Available Services</h2>
+                  {/* Services Catalog Cache Indicator */}
+                  {servicesResponse && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {servicesResponse.dataSource === 'cache' ? (
+                        <span style={{ 
+                          backgroundColor: '#fef3c7', 
+                          color: '#92400e', 
+                          padding: '4px 8px', 
+                          borderRadius: '12px', 
+                          fontSize: '12px',
+                          fontWeight: '500',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}>
+                          🗄️ Catalog from Cache
+                          {servicesResponse.cacheInfo?.source && (
+                            <span style={{ fontSize: '10px', opacity: 0.8 }}>
+                              ({servicesResponse.cacheInfo.source})
+                            </span>
+                          )}
+                        </span>
+                      ) : servicesResponse.dataSource === 'sap' ? (
+                        <span style={{ 
+                          backgroundColor: '#dcfce7', 
+                          color: '#166534', 
+                          padding: '4px 8px', 
+                          borderRadius: '12px', 
+                          fontSize: '12px',
+                          fontWeight: '500',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}>
+                          🌐 Catalog from SAP System
+                        </span>
+                      ) : null}
+                      {/* Timestamp */}
+                      {(servicesResponse.cacheInfo?.timestamp || servicesResponse.sapInfo?.timestamp) && (
+                        <span style={{ fontSize: '10px', color: '#9ca3af' }}>
+                          Retrieved: {new Date(servicesResponse.cacheInfo?.timestamp || servicesResponse.sapInfo?.timestamp || '').toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <button
                   onClick={fetchServices}
-                  disabled={loading || !connectionInfo.baseUrl.trim() || !connectionInfo.username.trim() || !connectionInfo.password.trim()}
+                  disabled={loading || !selectedConnection}
                   style={{
                     padding: '8px 16px',
                     backgroundColor: '#3b82f6',
                     color: 'white',
                     border: 'none',
                     borderRadius: '6px',
-                    cursor: loading ? 'not-allowed' : 'pointer',
+                    cursor: loading || !selectedConnection ? 'not-allowed' : 'pointer',
                     fontSize: '14px',
-                    opacity: loading ? 0.6 : 1
+                    opacity: loading || !selectedConnection ? 0.6 : 1
                   }}
                 >
                   {loading ? '⏳ Loading...' : (services.length > 0 ? '🔄 Refresh' : '📡 Load Services')}
@@ -498,7 +657,7 @@ export default function SapODataExplorer() {
                     Welcome to SAP OData Services Explorer
                   </h3>
                   <p style={{ color: '#6b7280' }}>
-                    Configure your SAP system connection and click "Load Services" to discover available OData services.
+                    Select a connection and click "Load Services" to discover available OData services.
                   </p>
                 </div>
               ) : (
@@ -654,14 +813,73 @@ export default function SapODataExplorer() {
                   <p>Loading metadata...</p>
                 </div>
               ) : metadata ? (
-                <div style={{ 
-                  backgroundColor: '#f3f4f6', 
-                  padding: '16px', 
-                  borderRadius: '8px', 
-                  overflow: 'auto', 
-                  maxHeight: '400px' 
-                }}>
-                  <pre style={{ fontSize: '12px', whiteSpace: 'pre-wrap', margin: 0 }}>{metadata}</pre>
+                <div>
+                  {/* Data Source Indicator for Metadata */}
+                  {metadataResponse && (
+                    <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                      <span style={{ 
+                        backgroundColor: '#f3f4f6', 
+                        color: '#374151', 
+                        padding: '4px 8px', 
+                        borderRadius: '12px', 
+                        fontSize: '12px' 
+                      }}>
+                        XML Metadata
+                      </span>
+                      <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                        {metadata.length.toLocaleString()} characters
+                      </span>
+                      {metadataResponse.dataSource === 'cache' ? (
+                        <span style={{ 
+                          backgroundColor: '#fef3c7', 
+                          color: '#92400e', 
+                          padding: '4px 8px', 
+                          borderRadius: '12px', 
+                          fontSize: '12px',
+                          fontWeight: '500',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}>
+                          🗄️ From Cache
+                          {metadataResponse.cacheInfo?.source && (
+                            <span style={{ fontSize: '10px', opacity: 0.8 }}>
+                              ({metadataResponse.cacheInfo.source})
+                            </span>
+                          )}
+                        </span>
+                      ) : metadataResponse.dataSource === 'sap' ? (
+                        <span style={{ 
+                          backgroundColor: '#dcfce7', 
+                          color: '#166534', 
+                          padding: '4px 8px', 
+                          borderRadius: '12px', 
+                          fontSize: '12px',
+                          fontWeight: '500',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}>
+                          🌐 From SAP System
+                        </span>
+                      ) : null}
+                      {/* Timestamp */}
+                      {(metadataResponse.cacheInfo?.timestamp || metadataResponse.sapInfo?.timestamp) && (
+                        <span style={{ fontSize: '10px', color: '#9ca3af' }}>
+                          Retrieved: {new Date(metadataResponse.cacheInfo?.timestamp || metadataResponse.sapInfo?.timestamp || '').toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  <div style={{ 
+                    backgroundColor: '#f3f4f6', 
+                    padding: '16px', 
+                    borderRadius: '8px', 
+                    overflow: 'auto', 
+                    maxHeight: '400px' 
+                  }}>
+                    <pre style={{ fontSize: '12px', whiteSpace: 'pre-wrap', margin: 0 }}>{metadata}</pre>
+                  </div>
                 </div>
               ) : (
                 <p style={{ color: '#6b7280' }}>No metadata available</p>
@@ -705,16 +923,75 @@ export default function SapODataExplorer() {
                   <p>Loading data...</p>
                 </div>
               ) : serviceData ? (
-                <div style={{ 
-                  backgroundColor: '#f3f4f6', 
-                  padding: '16px', 
-                  borderRadius: '8px', 
-                  overflow: 'auto', 
-                  maxHeight: '400px' 
-                }}>
-                  <pre style={{ fontSize: '12px', whiteSpace: 'pre-wrap', margin: 0 }}>
-                    {JSON.stringify(serviceData, null, 2)}
-                  </pre>
+                <div>
+                  {/* Data Source Indicator for Service Data */}
+                  {serviceDataResponse && (
+                    <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                      <span style={{ 
+                        backgroundColor: '#dbeafe', 
+                        color: '#1e40af', 
+                        padding: '4px 8px', 
+                        borderRadius: '12px', 
+                        fontSize: '12px' 
+                      }}>
+                        JSON Data
+                      </span>
+                      <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                        {serviceDataResponse.content.length.toLocaleString()} characters
+                      </span>
+                      {serviceDataResponse.dataSource === 'cache' ? (
+                        <span style={{ 
+                          backgroundColor: '#fef3c7', 
+                          color: '#92400e', 
+                          padding: '4px 8px', 
+                          borderRadius: '12px', 
+                          fontSize: '12px',
+                          fontWeight: '500',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}>
+                          🗄️ From Cache
+                          {serviceDataResponse.cacheInfo?.source && (
+                            <span style={{ fontSize: '10px', opacity: 0.8 }}>
+                              ({serviceDataResponse.cacheInfo.source})
+                            </span>
+                          )}
+                        </span>
+                      ) : serviceDataResponse.dataSource === 'sap' ? (
+                        <span style={{ 
+                          backgroundColor: '#dcfce7', 
+                          color: '#166534', 
+                          padding: '4px 8px', 
+                          borderRadius: '12px', 
+                          fontSize: '12px',
+                          fontWeight: '500',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}>
+                          🌐 From SAP System
+                        </span>
+                      ) : null}
+                      {/* Timestamp */}
+                      {(serviceDataResponse.cacheInfo?.timestamp || serviceDataResponse.sapInfo?.timestamp) && (
+                        <span style={{ fontSize: '10px', color: '#9ca3af' }}>
+                          Retrieved: {new Date(serviceDataResponse.cacheInfo?.timestamp || serviceDataResponse.sapInfo?.timestamp || '').toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  <div style={{ 
+                    backgroundColor: '#f3f4f6', 
+                    padding: '16px', 
+                    borderRadius: '8px', 
+                    overflow: 'auto', 
+                    maxHeight: '400px' 
+                  }}>
+                    <pre style={{ fontSize: '12px', whiteSpace: 'pre-wrap', margin: 0 }}>
+                      {JSON.stringify(serviceData, null, 2)}
+                    </pre>
+                  </div>
                 </div>
               ) : (
                 <p style={{ color: '#6b7280' }}>No data available</p>
@@ -724,10 +1001,10 @@ export default function SapODataExplorer() {
         )}
 
         {/* Entity Sets Tab */}
-        {activeTab === 'entitysets' && selectedService && (
+        {activeTab === 'entitysets' && selectedService && selectedConnection && (
           <EntitySetsViewer
             serviceName={getServiceNameFromUrl(selectedService)}
-            connectionInfo={connectionInfo}
+            connectionId={selectedConnection.id}
             onBack={() => setActiveTab('services')}
           />
         )}

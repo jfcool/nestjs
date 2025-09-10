@@ -1,12 +1,17 @@
-import { Controller, Post, Body, Get, Param, Query, Logger } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Query, Logger, Delete, Put } from '@nestjs/common';
 import { SapService } from './sap.service';
 import { SapConnectionDto, SapODataRequestDto, SapODataResponse } from './dto/sap-connection.dto';
+import { ConnectionService } from './services/connection.service';
+import type { CreateConnectionDto, UpdateConnectionDto } from './services/connection.service';
 
 @Controller('sapodata')
 export class SapController {
   private readonly logger = new Logger(SapController.name);
 
-  constructor(private readonly sapService: SapService) {}
+  constructor(
+    private readonly sapService: SapService,
+    private readonly connectionService: ConnectionService,
+  ) {}
 
   /**
    * Fetch OData service data from SAP system
@@ -55,8 +60,8 @@ export class SapController {
   @Post('catalog')
   async getServiceCatalog(@Body() connectionInfo: SapConnectionDto): Promise<SapODataResponse> {
     this.logger.log('Fetching SAP service catalog');
-    // Fetch the actual service catalog from SAP
-    const catalogPath = '/sap/opu/odata/IWFND/CATALOGSERVICE;v=2/ServiceCollection';
+    // Fetch the actual service catalog from SAP with filter to exclude ZUI_ services
+    const catalogPath = '/sap/opu/odata/IWFND/CATALOGSERVICE;v=2/ServiceCollection?$format=json&$filter=not startswith(TechnicalServiceName,\'ZUI_\')';
     return this.sapService.getData(catalogPath, connectionInfo);
   }
 
@@ -183,6 +188,164 @@ export class SapController {
       status: 'ok',
       timestamp: new Date().toISOString(),
     };
+  }
+
+  // Connection Management Endpoints
+
+  /**
+   * Get all connections
+   * GET /sapodata/connections
+   */
+  @Get('connections')
+  async getConnections() {
+    this.logger.log('Fetching all SAP connections');
+    return this.connectionService.listConnections();
+  }
+
+  /**
+   * Create a new connection
+   * POST /sapodata/connections
+   */
+  @Post('connections')
+  async createConnection(@Body() createConnectionDto: CreateConnectionDto) {
+    this.logger.log(`Creating new SAP connection: ${createConnectionDto.name}`);
+    return this.connectionService.createConnection(createConnectionDto);
+  }
+
+  /**
+   * Get connection by ID
+   * GET /sapodata/connections/:id
+   */
+  @Get('connections/:id')
+  async getConnection(@Param('id') id: string) {
+    this.logger.log(`Fetching SAP connection: ${id}`);
+    const { connection } = await this.connectionService.getConnectionById(id);
+    return connection; // Don't return the password
+  }
+
+  /**
+   * Update connection
+   * PUT /sapodata/connections/:id
+   */
+  @Put('connections/:id')
+  async updateConnection(
+    @Param('id') id: string,
+    @Body() updateConnectionDto: UpdateConnectionDto
+  ) {
+    this.logger.log(`Updating SAP connection: ${id}`);
+    return this.connectionService.updateConnection(id, updateConnectionDto);
+  }
+
+  /**
+   * Delete connection
+   * DELETE /sapodata/connections/:id
+   */
+  @Delete('connections/:id')
+  async deleteConnection(@Param('id') id: string) {
+    this.logger.log(`Deleting SAP connection: ${id}`);
+    await this.connectionService.deleteConnection(id);
+    return { message: 'Connection deleted successfully' };
+  }
+
+  /**
+   * Test connection
+   * POST /sapodata/connections/:id/test
+   */
+  @Post('connections/:id/test')
+  async testConnection(@Param('id') id: string) {
+    this.logger.log(`Testing SAP connection: ${id}`);
+    return this.connectionService.testConnection(id);
+  }
+
+  /**
+   * Fetch OData service data using stored connection
+   * POST /sapodata/connection/:connectionId/data
+   */
+  @Post('connection/:connectionId/data')
+  async getDataWithConnection(
+    @Param('connectionId') connectionId: string,
+    @Body() request: { servicePath: string; cacheConnectionId?: string }
+  ): Promise<SapODataResponse> {
+    this.logger.log(`Fetching SAP data for service path: ${request.servicePath} using connection: ${connectionId}`);
+    return this.sapService.getDataWithConnection(request.servicePath, connectionId, request.cacheConnectionId);
+  }
+
+  /**
+   * Fetch OData metadata using stored connection
+   * POST /sapodata/connection/:connectionId/metadata
+   */
+  @Post('connection/:connectionId/metadata')
+  async getMetadataWithConnection(
+    @Param('connectionId') connectionId: string,
+    @Body() request: { servicePath: string; cacheConnectionId?: string }
+  ): Promise<SapODataResponse> {
+    this.logger.log(`Fetching SAP metadata for service path: ${request.servicePath} using connection: ${connectionId}`);
+    return this.sapService.getMetadataWithConnection(request.servicePath, connectionId, request.cacheConnectionId);
+  }
+
+  /**
+   * Get SAP service catalog using stored connection
+   * POST /sapodata/connection/:connectionId/catalog
+   */
+  @Post('connection/:connectionId/catalog')
+  async getServiceCatalogWithConnection(
+    @Param('connectionId') connectionId: string,
+    @Body() request: { cacheConnectionId?: string }
+  ): Promise<SapODataResponse> {
+    this.logger.log(`Fetching SAP service catalog using connection: ${connectionId}`);
+    const catalogPath = '/sap/opu/odata/IWFND/CATALOGSERVICE;v=2/ServiceCollection?$format=json&$filter=not startswith(TechnicalServiceName,\'ZUI_\')';
+    return this.sapService.getDataWithConnection(catalogPath, connectionId, request.cacheConnectionId);
+  }
+
+  /**
+   * Parse metadata to extract entity sets using stored connection
+   * POST /sapodata/connection/:connectionId/service/:serviceName/metadata/parsed
+   */
+  @Post('connection/:connectionId/service/:serviceName/metadata/parsed')
+  async getParsedMetadataWithConnection(
+    @Param('connectionId') connectionId: string,
+    @Param('serviceName') serviceName: string,
+    @Body() request: { cacheConnectionId?: string }
+  ): Promise<any> {
+    this.logger.log(`Fetching and parsing SAP service metadata for: ${serviceName} using connection: ${connectionId}`);
+    const metadataPath = `/sap/opu/odata/sap/${serviceName}/$metadata`;
+    const metadataResponse = await this.sapService.getMetadataWithConnection(metadataPath, connectionId, request.cacheConnectionId);
+    
+    // Parse the XML metadata to extract entity sets and their properties
+    return this.sapService.parseMetadata(metadataResponse.content);
+  }
+
+  /**
+   * Get data from a specific entity set using stored connection
+   * POST /sapodata/connection/:connectionId/service/:serviceName/entityset/:entitySetName
+   */
+  @Post('connection/:connectionId/service/:serviceName/entityset/:entitySetName')
+  async getEntitySetDataWithConnection(
+    @Param('connectionId') connectionId: string,
+    @Param('serviceName') serviceName: string,
+    @Param('entitySetName') entitySetName: string,
+    @Body() body: { options?: { top?: number; skip?: number; filter?: string; orderby?: string; select?: string; expand?: string }; cacheConnectionId?: string }
+  ): Promise<SapODataResponse> {
+    this.logger.log(`Fetching data for entity set: ${entitySetName} in service: ${serviceName} using connection: ${connectionId}`);
+    
+    let servicePath = `/sap/opu/odata/sap/${serviceName}/${entitySetName}`;
+    
+    // Add OData query parameters if provided
+    if (body.options) {
+      const queryParams: string[] = [];
+      if (body.options.filter) queryParams.push(`$filter=${encodeURIComponent(body.options.filter)}`);
+      if (body.options.top) queryParams.push(`$top=${body.options.top}`);
+      if (body.options.skip) queryParams.push(`$skip=${body.options.skip}`);
+      if (body.options.orderby) queryParams.push(`$orderby=${encodeURIComponent(body.options.orderby)}`);
+      if (body.options.select) queryParams.push(`$select=${encodeURIComponent(body.options.select)}`);
+      if (body.options.expand) queryParams.push(`$expand=${encodeURIComponent(body.options.expand)}`);
+      
+      if (queryParams.length > 0) {
+        servicePath += `?${queryParams.join('&')}`;
+      }
+    }
+
+    return this.sapService.getDataWithConnection(servicePath, connectionId, body.cacheConnectionId);
   }
 
   /**
