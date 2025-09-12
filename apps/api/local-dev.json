@@ -1,0 +1,82 @@
+{
+  "VCAP_SERVICES": {
+    "destination": [
+      {
+        "name": "my-destination",
+        "label": "destination",
+        "credentials": {
+            "tenantmode": "dedicated",
+            "token-type": [
+              "xsuaa"
+            ],
+            "clientid": "sb-clonec7d5e48d832a48a8a1372bceb82390ff!b515812|destination-xsappname!b62",
+            "credential-type": "binding-secret",
+            "xsappname": "clonec7d5e48d832a48a8a1372bceb82390ff!b515812|destination-xsappname!b62",
+            "clientsecret": "ccfd4f4f-9184-4a20-86ac-40d026364e94$-V1huLazcnFDaJ50uHpQevWru5LjyuCGNlbo0yLTx88=",
+            "uri": "https://destination-configuration.cfapps.us10.hana.ondemand.com",
+            "url": "https://a4b5bfb2trial.authentication.us10.hana.ondemand.com",
+            "uaadomain": "authentication.us10.hana.ondemand.com",
+            "instanceid": "c7d5e48d-832a-48a8-a137-2bceb82390ff",
+            "verificationkey": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyFpHzM5Yc2tzw7UmF77H\nOsqlFuTnHuG3OoCMRqeFXZMXIs7AnvMErxDs6rwDm+FZmPk/cYZroWE8QIXMyXJG\na/Bpe0ImN6nbJm+B9me27RRX5gUyUafZEDJO90qTdiJkWIWEyx9iSIREvWfhepVm\nMQgTfXmfbKJfVt6wqGxScEIJbKgMXC5WlwXQzBYXEjY4If4mlDTFjmAJ8QNrZl/V\ngGTIO1IxZ6Of+c4BKPLWmSU7z8G9UJjdvRdEPUPmDQobxwfXPTlxYliEe4ZdcuKD\n+0fP6CakLGrREdKY6gLlxvh634RvmYz6KWI/vtdMFv8b8T+HEerd2fM4ZBhzHUQd\nDwIDAQAB\n-----END PUBLIC KEY-----",
+            "identityzone": "a4b5bfb2trial",
+            "tenantid": "62e85d7f-9502-4e60-b52e-8227067b5be5"
+          }
+      }
+    ],
+    "connectivity": [
+      {
+        "name": "my-connectivity",
+        "label": "connectivity",
+        "credentials": {
+            "tenantmode": "dedicated",
+            "token-type": [
+              "xsuaa"
+            ],
+            "clientid": "sb-clonef39436a6895b4bc1bde343a0b160b374!b515812|connectivity!b23892",
+            "token_service_domain": "authentication.us10.hana.ondemand.com",
+            "credential-type": "binding-secret",
+            "token_service_url": "https://a4b5bfb2trial.authentication.us10.hana.ondemand.com",
+            "xsappname": "clonef39436a6895b4bc1bde343a0b160b374!b515812|connectivity!b23892",
+            "onpremise_proxy_ldap_port": "20001",
+            "onpremise_socks5_proxy_port": "20004",
+            "clientsecret": "25aa4244-3b19-4a0c-8742-018063360f41$hz7qfuhQ-wFZUo9l5qTIvDDKioHE2hUuL5EsORkkboU=",
+            "onpremise_proxy_http_port": "20003",
+            "url": "https://a4b5bfb2trial.authentication.us10.hana.ondemand.com",
+            "onpremise_proxy_host": "connectivityproxy.internal.cf.us10-001.hana.ondemand.com",
+            "uaadomain": "authentication.us10.hana.ondemand.com",
+            "onpremise_proxy_port": "20003",
+            "verificationkey": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyFpHzM5Yc2tzw7UmF77H\nOsqlFuTnHuG3OoCMRqeFXZMXIs7AnvMErxDs6rwDm+FZmPk/cYZroWE8QIXMyXJG\na/Bpe0ImN6nbJm+B9me27RRX5gUyUafZEDJO90qTdiJkWIWEyx9iSIREvWfhepVm\nMQgTfXmfbKJfVt6wqGxScEIJbKgMXC5WlwXQzBYXEjY4If4mlDTFjmAJ8QNrZl/V\ngGTIO1IxZ6Of+c4BKPLWmSU7z8G9UJjdvRdEPUPmDQobxwfXPTlxYliEe4ZdcuKD\n+0fP6CakLGrREdKY6gLlxvh634RvmYz6KWI/vtdMFv8b8T+HEerd2fM4ZBhzHUQd\nDwIDAQAB\n-----END PUBLIC KEY-----",
+            "identityzone": "a4b5bfb2trial",
+            "tenantid": "62e85d7f-9502-4e60-b52e-8227067b5be5",
+            "onpremise_proxy_rfc_port": "20001",
+            "region_configuration_id": "cf-us10-001"
+          }
+      }
+    ],
+    "xsuaa": [
+      {
+        "name": "my-xsuaa",
+        "label": "xsuaa",
+        "credentials": {
+            "tenantmode": "dedicated",
+            "sburl": "https://internal-xsuaa.authentication.us10.hana.ondemand.com",
+            "subaccountid": "62e85d7f-9502-4e60-b52e-8227067b5be5",
+            "credential-type": "binding-secret",
+            "clientid": "sb-na-8f7f643d-60ca-4b9c-9883-148dfe160877!a515812",
+            "xsappname": "na-8f7f643d-60ca-4b9c-9883-148dfe160877!a515812",
+            "clientsecret": "914bc011-a91f-408b-8849-1ed9e9e1237e$S3BcDm1KICAqzZXd069FOvfCnn41xN8Zz-g62byD7D0=",
+            "serviceInstanceId": "635d4c22-14c8-439c-9ae8-ded2619217dc",
+            "url": "https://a4b5bfb2trial.authentication.us10.hana.ondemand.com",
+            "uaadomain": "authentication.us10.hana.ondemand.com",
+            "verificationkey": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyFpHzM5Yc2tzw7UmF77H\nOsqlFuTnHuG3OoCMRqeFXZMXIs7AnvMErxDs6rwDm+FZmPk/cYZroWE8QIXMyXJG\na/Bpe0ImN6nbJm+B9me27RRX5gUyUafZEDJO90qTdiJkWIWEyx9iSIREvWfhepVm\nMQgTfXmfbKJfVt6wqGxScEIJbKgMXC5WlwXQzBYXEjY4If4mlDTFjmAJ8QNrZl/V\ngGTIO1IxZ6Of+c4BKPLWmSU7z8G9UJjdvRdEPUPmDQobxwfXPTlxYliEe4ZdcuKD\n+0fP6CakLGrREdKY6gLlxvh634RvmYz6KWI/vtdMFv8b8T+HEerd2fM4ZBhzHUQd\nDwIDAQAB\n-----END PUBLIC KEY-----",
+            "apiurl": "https://api.authentication.us10.hana.ondemand.com",
+            "identityzone": "a4b5bfb2trial",
+            "identityzoneid": "62e85d7f-9502-4e60-b52e-8227067b5be5",
+            "tenantid": "62e85d7f-9502-4e60-b52e-8227067b5be5",
+            "zoneid": "62e85d7f-9502-4e60-b52e-8227067b5be5"
+          }
+      }
+    ]
+  }
+}
+

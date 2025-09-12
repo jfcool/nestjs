@@ -2,6 +2,10 @@ import { Controller, Post, Body, Get, Param, Query, Logger, Delete, Put } from '
 import { SapService } from './sap.service';
 import { SapConnectionDto, SapODataRequestDto, SapODataResponse } from './dto/sap-connection.dto';
 import { ConnectionService } from './services/connection.service';
+import { SapCloudSdkService } from './services/sap-cloud-sdk.service';
+import { SapCloudSdkLocalService } from './services/sap-cloud-sdk-local.service';
+import type { SapCloudSdkRequestDto as BtpSapCloudSdkRequestDto, SapCloudSdkResponse as BtpSapCloudSdkResponse } from './services/sap-cloud-sdk.service';
+import type { SapCloudSdkRequestDto, SapCloudSdkResponse } from './services/sap-cloud-sdk-local.service';
 import type { CreateConnectionDto, UpdateConnectionDto } from './services/connection.service';
 
 @Controller('sapodata')
@@ -11,6 +15,8 @@ export class SapController {
   constructor(
     private readonly sapService: SapService,
     private readonly connectionService: ConnectionService,
+    private readonly sapCloudSdkService: SapCloudSdkService,
+    private readonly sapCloudSdkLocalService: SapCloudSdkLocalService,
   ) {}
 
   /**
@@ -309,10 +315,24 @@ export class SapController {
   ): Promise<any> {
     this.logger.log(`Fetching and parsing SAP service metadata for: ${serviceName} using connection: ${connectionId}`);
     const metadataPath = `/sap/opu/odata/sap/${serviceName}/$metadata`;
-    const metadataResponse = await this.sapService.getMetadataWithConnection(metadataPath, connectionId, request.cacheConnectionId);
+    
+    // Use the cacheConnectionId from the request body to ensure caching works
+    const metadataResponse = await this.sapService.getMetadataWithConnection(
+      metadataPath, 
+      connectionId, 
+      request.cacheConnectionId
+    );
     
     // Parse the XML metadata to extract entity sets and their properties
-    return this.sapService.parseMetadata(metadataResponse.content);
+    const parsedMetadata = this.sapService.parseMetadata(metadataResponse.content);
+    
+    // Return parsed metadata with cache information from the original response
+    return {
+      ...parsedMetadata,
+      dataSource: metadataResponse.dataSource,
+      cacheInfo: metadataResponse.cacheInfo,
+      sapInfo: metadataResponse.sapInfo
+    };
   }
 
   /**
@@ -346,6 +366,39 @@ export class SapController {
     }
 
     return this.sapService.getDataWithConnection(servicePath, connectionId, body.cacheConnectionId);
+  }
+
+  // SAP Cloud SDK Endpoints
+
+  /**
+   * Execute HTTP request using SAP Cloud SDK (Local Development)
+   * POST /sapodata/cloud-sdk/execute
+   */
+  @Post('cloud-sdk/execute')
+  async executeSapCloudSdkRequest(@Body() request: SapCloudSdkRequestDto): Promise<SapCloudSdkResponse> {
+    this.logger.log(`[SAP Cloud SDK Local] Executing request: ${request.servicePath}`);
+    return this.sapCloudSdkLocalService.executeRequest(request);
+  }
+
+  /**
+   * Get Business Partners using SAP Cloud SDK (example from provided code snippet)
+   * POST /sapodata/cloud-sdk/business-partners
+   */
+  @Post('cloud-sdk/business-partners')
+  async getBusinessPartnersWithCloudSdk(
+    @Body() request: { connectionId: string; top?: number }
+  ): Promise<SapCloudSdkResponse> {
+    this.logger.log(`[SAP Cloud SDK Local] Fetching Business Partners with top: ${request.top || 5}`);
+    return this.sapCloudSdkLocalService.getBusinessPartners(request.connectionId, request.top);
+  }
+
+  /**
+   * SAP Cloud SDK Health Check (Local Development)
+   * GET /sapodata/cloud-sdk/health
+   */
+  @Get('cloud-sdk/health')
+  async sapCloudSdkHealthCheck(): Promise<{ status: string; mode: string; timestamp: string }> {
+    return this.sapCloudSdkLocalService.healthCheck();
   }
 
   /**

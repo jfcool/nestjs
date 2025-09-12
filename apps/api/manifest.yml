@@ -1,0 +1,17 @@
+---
+applications:
+- name: nestjs-sap-cloud-sdk-api
+  memory: 512M
+  instances: 1
+  buildpacks:
+    - nodejs_buildpack
+  path: .
+  command: npm run start:prod
+  env:
+    NODE_ENV: production
+  services:
+    - sap-connectivity-service
+    - sap-destination-service
+    - sap-xsuaa-service
+  routes:
+    - route: nestjs-sap-cloud-sdk-api.cfapps.us10-001.hana.ondemand.com

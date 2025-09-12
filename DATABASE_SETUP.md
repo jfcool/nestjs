@@ -45,15 +45,15 @@ pnpm run dev
 ### API testen
 ```bash
 # Alle User abrufen
-curl -X GET http://localhost:3001/users
+curl -X GET http://localhost:3002/users
 
 # Neuen User erstellen
-curl -X POST http://localhost:3001/users \
+curl -X POST http://localhost:3002/users \
   -H "Content-Type: application/json" \
   -d '{"name": "Test User", "email": "test@example.com"}'
 
 # Einzelnen User abrufen
-curl -X GET http://localhost:3001/users/1
+curl -X GET http://localhost:3002/users/1
 ```
 
 ## Datenbankschema
@@ -98,7 +98,7 @@ Die Verbindung wird automatisch beim ersten Start von pgAdmin eingerichtet.
 
 ## Swagger Dokumentation
 
-Die API-Dokumentation ist verfügbar unter: http://localhost:3001/docs
+Die API-Dokumentation ist verfügbar unter: http://localhost:3002/docs
 
 ## Technische Details
 

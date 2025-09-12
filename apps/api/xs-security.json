@@ -1,0 +1,48 @@
+{
+  "xsappname": "nestjs-sap-app",
+  "tenant-mode": "dedicated",
+  "description": "NestJS SAP Cloud SDK Application",
+  "scopes": [
+    {
+      "name": "$XSAPPNAME.read",
+      "description": "Read access to SAP data"
+    },
+    {
+      "name": "$XSAPPNAME.write", 
+      "description": "Write access to SAP data"
+    }
+  ],
+  "role-templates": [
+    {
+      "name": "Viewer",
+      "description": "View SAP data",
+      "scope-references": [
+        "$XSAPPNAME.read"
+      ]
+    },
+    {
+      "name": "Editor",
+      "description": "Edit SAP data", 
+      "scope-references": [
+        "$XSAPPNAME.read",
+        "$XSAPPNAME.write"
+      ]
+    }
+  ],
+  "role-collections": [
+    {
+      "name": "SAP_Data_Viewer",
+      "description": "Role collection for SAP data viewers",
+      "role-template-references": [
+        "$XSAPPNAME.Viewer"
+      ]
+    },
+    {
+      "name": "SAP_Data_Editor", 
+      "description": "Role collection for SAP data editors",
+      "role-template-references": [
+        "$XSAPPNAME.Editor"
+      ]
+    }
+  ]
+}

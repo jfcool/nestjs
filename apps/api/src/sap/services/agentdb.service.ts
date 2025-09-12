@@ -110,11 +110,11 @@ export class AgentDBService {
       });
 
       if (result.results?.[0]?.rows?.length > 0) {
-        const content = result.results[0].rows[0][0] as string;
+         const content = result.results[0].rows[0].response_content as string;
 
-        // Update hit count and last accessed
+         // Update hit count and last accessed
         await this.execute(config, {
-          sql: "UPDATE odata_cache SET hit_count = hit_count + 1, last_accessed = datetime('now') WHERE cache_key = ?",
+          sql: `UPDATE "odata_cache" SET "hit_count" = "hit_count" + 1, "last_accessed" = datetime('now') WHERE cache_key = ?`,
           params: [cacheKey],
         });
 
@@ -200,7 +200,7 @@ export class AgentDBService {
       await this.execute(config, {
         sql: `
           UPDATE odata_services 
-          SET total_calls = total_calls + 1, last_used = datetime('now') 
+          SET "total_calls" = "total_calls" + 1, last_used = datetime('now') 
           WHERE service_path = ?
         `,
         params: [servicePath],
@@ -281,7 +281,7 @@ export class AgentDBService {
       await this.execute(config, {
         sql: `
           UPDATE odata_services 
-          SET total_calls = total_calls + 1, last_used = datetime('now') 
+          SET "total_calls" = "total_calls" + 1, last_used = datetime('now') 
           WHERE service_path = ?
         `,
         params: [servicePath],
