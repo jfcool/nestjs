@@ -2,6 +2,26 @@
 
 import React, { useState, useEffect } from 'react';
 
+/**
+ * SAP OData Entity Sets Explorer Component
+ * 
+ * Diese Komponente ermöglicht die interaktive Exploration von SAP OData Entity Sets.
+ * Sie lädt Metadaten von SAP-Services, parst Entity Sets und bietet eine benutzerfreundliche
+ * Oberfläche zur Datenabfrage mit konfigurierbaren OData-Parametern.
+ * 
+ * Features:
+ * - Automatisches Laden und Parsen von SAP OData Metadaten
+ * - Anzeige aller Entity Sets mit Properties und Key-Feldern
+ * - Erweiterte Suchfunktion mit Multi-Word-Unterstützung
+ * - Interaktive Datenabfrage mit OData-Query-Parametern ($top, $skip, $filter, etc.)
+ * - Responsive Design mit Hover-Effekten und Loading-States
+ * - Cache-Integration für bessere Performance
+ * 
+ * @author SAP Integration Team
+ * @version 1.0.0
+ * @since 2025-09-12
+ */
+
 interface EntitySet {
   name: string;
   entityType: string;
@@ -19,6 +39,21 @@ interface EntitySetData {
   url: string;
   isJson: boolean;
   parsedContent?: any;
+  dataSource?: 'sap' | 'cache';
+  cacheInfo?: {
+    source: string;
+    timestamp: string;
+    servicePath: string;
+  };
+  sapInfo?: {
+    timestamp: string;
+    servicePath: string;
+  };
+}
+
+interface EntitySetsMetadataResponse {
+  entitySets: EntitySet[];
+  summary?: any;
   dataSource?: 'sap' | 'cache';
   cacheInfo?: {
     source: string;
@@ -50,6 +85,7 @@ export default function EntitySetsViewer({ serviceName, connectionId, onBack }: 
   const [loading, setLoading] = useState(false);
   const [entitySets, setEntitySets] = useState<EntitySet[]>([]);
   const [filteredEntitySets, setFilteredEntitySets] = useState<EntitySet[]>([]);
+  const [entitySetsResponse, setEntitySetsResponse] = useState<EntitySetsMetadataResponse | null>(null);
   const [searchText, setSearchText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [selectedEntitySet, setSelectedEntitySet] = useState<EntitySet | null>(null);
@@ -87,19 +123,25 @@ export default function EntitySetsViewer({ serviceName, connectionId, onBack }: 
       setError(null);
 
       // First get the parsed metadata to extract entity sets
-      const response = await fetch(`http://localhost:3001/sapodata/connection/${connectionId}/service/${serviceName}/metadata/parsed`, {
+      const response = await fetch(`http://localhost:3002/sapodata/connection/${connectionId}/service/${serviceName}/metadata/parsed`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify({
+          cacheConnectionId: undefined // Optional cache connection ID
+        }),
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
       }
 
-      const result = await response.json();
+      const result: EntitySetsMetadataResponse = await response.json();
+      
+      // Store the complete response for cache indicators
+      setEntitySetsResponse(result);
       
       if (result.entitySets) {
         setEntitySets(result.entitySets);
@@ -121,18 +163,20 @@ export default function EntitySetsViewer({ serviceName, connectionId, onBack }: 
       setError(null);
       setSelectedEntitySet(entitySet);
 
-      const response = await fetch(`http://localhost:3001/sapodata/connection/${connectionId}/service/${serviceName}/entityset/${entitySet.name}`, {
+      const response = await fetch(`http://localhost:3002/sapodata/connection/${connectionId}/service/${serviceName}/entityset/${entitySet.name}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          options: queryOptions
+          options: queryOptions,
+          cacheConnectionId: undefined // Optional cache connection ID
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
       }
 
       const result: EntitySetData = await response.json();
@@ -582,9 +626,56 @@ export default function EntitySetsViewer({ serviceName, connectionId, onBack }: 
         }}>
           <div style={{ padding: '16px', borderBottom: '1px solid #e5e7eb' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: '600', margin: 0 }}>
-                Available Entity Sets
-              </h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: '600', margin: 0 }}>
+                  Available Entity Sets
+                </h2>
+                {/* EntitySets Metadata Cache Indicator */}
+                {entitySetsResponse && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {entitySetsResponse.dataSource === 'cache' ? (
+                      <span style={{ 
+                        backgroundColor: '#fef3c7', 
+                        color: '#92400e', 
+                        padding: '4px 8px', 
+                        borderRadius: '12px', 
+                        fontSize: '12px',
+                        fontWeight: '500',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}>
+                        🗄️ Metadata from Cache
+                        {entitySetsResponse.cacheInfo?.source && (
+                          <span style={{ fontSize: '10px', opacity: 0.8 }}>
+                            ({entitySetsResponse.cacheInfo.source})
+                          </span>
+                        )}
+                      </span>
+                    ) : entitySetsResponse.dataSource === 'sap' ? (
+                      <span style={{ 
+                        backgroundColor: '#dcfce7', 
+                        color: '#166534', 
+                        padding: '4px 8px', 
+                        borderRadius: '12px', 
+                        fontSize: '12px',
+                        fontWeight: '500',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}>
+                        🌐 Metadata from SAP System
+                      </span>
+                    ) : null}
+                    {/* Timestamp */}
+                    {(entitySetsResponse.cacheInfo?.timestamp || entitySetsResponse.sapInfo?.timestamp) && (
+                      <span style={{ fontSize: '10px', color: '#9ca3af' }}>
+                        Retrieved: {new Date(entitySetsResponse.cacheInfo?.timestamp || entitySetsResponse.sapInfo?.timestamp || '').toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
               <button
                 onClick={fetchEntitySets}
                 disabled={loading}
@@ -599,7 +690,7 @@ export default function EntitySetsViewer({ serviceName, connectionId, onBack }: 
                   opacity: loading ? 0.6 : 1
                 }}
               >
-                {loading ? '⏳ Loading...' : '🔄 Refresh'}
+                {loading ? '⏳ Loading...' : (entitySets.length > 0 ? '🔄 Refresh' : '📡 Load Entity Sets')}
               </button>
             </div>
 

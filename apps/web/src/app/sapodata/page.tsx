@@ -1,8 +1,45 @@
+/**
+ * @fileoverview SAP OData Services Explorer - Main Application Component
+ * 
+ * This is the primary interface for exploring and interacting with SAP OData services.
+ * It provides a comprehensive dashboard for managing SAP connections, discovering services,
+ * viewing metadata, exploring data, and working with entity sets.
+ * 
+ * Key Features:
+ * - Connection Management: Select and manage stored SAP connections
+ * - Services Discovery: Load and explore available OData services from SAP systems
+ * - Metadata Viewer: Display and analyze service metadata (XML format)
+ * - Data Explorer: Query and view service data with JSON formatting
+ * - Entity Sets Explorer: Interactive exploration of entity sets with advanced querying
+ * - SAP Cloud SDK Integration: Professional SAP connectivity using official SDK
+ * - Caching Support: Visual indicators for cached vs. live data from SAP systems
+ * - Search & Filter: Advanced search capabilities across services and properties
+ * 
+ * Architecture:
+ * - Tab-based navigation for different exploration modes
+ * - Real-time connection status and validation
+ * - Responsive design with comprehensive error handling
+ * - Integration with AgentDB for performance caching
+ * - Support for both direct connections and BTP destinations
+ * 
+ * Usage Flow:
+ * 1. Select or create SAP connection
+ * 2. Load available OData services
+ * 3. Explore service metadata and data
+ * 4. Use Entity Sets Explorer for detailed analysis
+ * 5. Leverage SAP Cloud SDK for enterprise integration
+ * 
+ * @author NestJS SAP Integration Team
+ * @version 2.0.0
+ * @since 2024
+ */
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import EntitySetsViewer from './components/EntitySetsViewer';
+import SapCloudSdkViewer from './components/SapCloudSdkViewer';
 
 interface ODataService {
   ServiceUrl: string | URL;
@@ -54,7 +91,7 @@ interface SapODataResponse {
 }
 
 export default function SapODataExplorer() {
-  const [activeTab, setActiveTab] = useState<'services' | 'metadata' | 'data' | 'entitysets'>('services');
+  const [activeTab, setActiveTab] = useState<'services' | 'metadata' | 'data' | 'entitysets' | 'cloudsdk'>('services');
   const [loading, setLoading] = useState(false);
   const [services, setServices] = useState<ODataService[]>([]);
   const [filteredServices, setFilteredServices] = useState<ODataService[]>([]);
@@ -542,6 +579,21 @@ export default function SapODataExplorer() {
             >
               🗂️ Entity Sets
             </button>
+            <button
+              onClick={() => setActiveTab('cloudsdk')}
+              style={{
+                padding: '12px 16px',
+                backgroundColor: activeTab === 'cloudsdk' ? '#eff6ff' : 'transparent',
+                borderBottom: activeTab === 'cloudsdk' ? '2px solid #3b82f6' : 'none',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: activeTab === 'cloudsdk' ? '600' : '400',
+                color: activeTab === 'cloudsdk' ? '#3b82f6' : '#6b7280'
+              }}
+            >
+              ☁️ SAP Cloud SDK
+            </button>
           </div>
         </div>
 
@@ -1005,6 +1057,13 @@ export default function SapODataExplorer() {
           <EntitySetsViewer
             serviceName={getServiceNameFromUrl(selectedService)}
             connectionId={selectedConnection.id}
+            onBack={() => setActiveTab('services')}
+          />
+        )}
+
+        {/* SAP Cloud SDK Tab */}
+        {activeTab === 'cloudsdk' && (
+          <SapCloudSdkViewer
             onBack={() => setActiveTab('services')}
           />
         )}
