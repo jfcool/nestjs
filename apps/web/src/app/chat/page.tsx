@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
 import { toast } from '@/hooks/use-toast';
+import { api, ApiError, NetworkError } from '@/lib/api-client';
 
 interface Message {
   id: string;
@@ -61,11 +62,16 @@ export default function ChatPage() {
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [streamingMessage, setStreamingMessage] = useState<string>('');
+  const [streamingStatus, setStreamingStatus] = useState<string>('');
+  const [isStreaming, setIsStreaming] = useState(false);
   const [mcpServers, setMcpServers] = useState<McpServer[]>([]);
   const [aiModels, setAiModels] = useState<AIModel[]>([]);
   const [defaultModel, setDefaultModel] = useState<AIModel | null>(null);
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [useMcp, setUseMcp] = useState(true);
+  const [editingConversationId, setEditingConversationId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -85,16 +91,19 @@ export default function ChatPage() {
 
   const fetchConversations = async () => {
     try {
-      const response = await fetch('http://localhost:3001/chat/conversations');
-      if (response.ok) {
-        const data = await response.json();
-        setConversations(data);
-      }
+      const response = await api.chat.conversations.list();
+      setConversations(response.data);
     } catch (error) {
       console.error('Error fetching conversations:', error);
+      const errorMessage = error instanceof ApiError 
+        ? `API Error: ${error.message}` 
+        : error instanceof NetworkError 
+        ? `Network Error: ${error.message}`
+        : 'Failed to fetch conversations';
+      
       toast({
         title: 'Error',
-        description: 'Failed to fetch conversations',
+        description: errorMessage,
         variant: 'destructive',
       });
     }
@@ -102,7 +111,7 @@ export default function ChatPage() {
 
   const fetchMcpServers = async () => {
     try {
-      const response = await fetch('http://localhost:3001/chat/mcp/servers');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/chat/mcp/servers`);
       if (response.ok) {
         const data = await response.json();
         setMcpServers(data);
@@ -114,7 +123,7 @@ export default function ChatPage() {
 
   const reloadMcpConfiguration = async () => {
     try {
-      const response = await fetch('http://localhost:3001/chat/mcp/reload', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/chat/mcp/reload`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -149,7 +158,7 @@ export default function ChatPage() {
 
   const fetchAiModels = async () => {
     try {
-      const response = await fetch('http://localhost:3001/chat/models/all');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/chat/models/all`);
       if (response.ok) {
         const data = await response.json();
         setAiModels(data);
@@ -161,7 +170,7 @@ export default function ChatPage() {
 
   const fetchDefaultModel = async () => {
     try {
-      const response = await fetch('http://localhost:3001/chat/models/default');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/chat/models/default`);
       if (response.ok) {
         const data = await response.json();
         setDefaultModel(data);
@@ -174,7 +183,7 @@ export default function ChatPage() {
 
   const setDefaultModelApi = async (modelId: string) => {
     try {
-      const response = await fetch('http://localhost:3001/chat/models/default', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/chat/models/default`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -211,7 +220,7 @@ export default function ChatPage() {
       let mcpServerNames: string[] = [];
       if (useMcp) {
         try {
-          const mcpResponse = await fetch('http://localhost:3001/chat/mcp/servers');
+          const mcpResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/chat/mcp/servers`);
           if (mcpResponse.ok) {
             const mcpServers = await mcpResponse.json();
             // Only include servers that are not disabled
@@ -226,7 +235,7 @@ export default function ChatPage() {
         }
       }
 
-      const response = await fetch('http://localhost:3001/chat/conversations', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/chat/conversations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -254,51 +263,66 @@ export default function ChatPage() {
     }
   };
 
-  const sendMessage = async () => {
+  const sendStreamingMessage = async () => {
     if (!message.trim()) return;
 
-    setIsLoading(true);
     const userMessage = message;
     setMessage('');
+    setIsLoading(true);
+
+    // Immediately show user message
+    const tempUserMessage: Message = {
+      id: `temp-${Date.now()}`,
+      role: 'user',
+      content: userMessage,
+      createdAt: new Date().toISOString(),
+    };
+
+    if (currentConversation) {
+      const updatedConversation = {
+        ...currentConversation,
+        messages: [...(currentConversation.messages || []), tempUserMessage],
+      };
+      setCurrentConversation(updatedConversation);
+    }
 
     try {
-      const response = await fetch('http://localhost:3001/chat/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content: userMessage,
-          role: 'user',
-          conversationId: currentConversation?.id,
-          useMcp,
-        }),
+      // Use regular message sending for now (fallback until SSE is fully working)
+      const response = await api.chat.messages.send({
+        content: userMessage,
+        role: 'user',
+        conversationId: currentConversation?.id,
+        useMcp,
       });
 
-      if (response.ok) {
-        const { userMessage: newUserMessage, assistantMessage } = await response.json();
+      if (currentConversation) {
+        const updatedConversation = {
+          ...currentConversation,
+          messages: [
+            ...(currentConversation.messages || []).filter(m => m.id !== tempUserMessage.id),
+            response.data.userMessage,
+            response.data.assistantMessage
+          ],
+        };
+        setCurrentConversation(updatedConversation);
         
-        if (currentConversation) {
-          const updatedConversation = {
-            ...currentConversation,
-            messages: [...(currentConversation.messages || []), newUserMessage, assistantMessage],
-          };
-          setCurrentConversation(updatedConversation);
-          
-          // Update conversations list
-          setConversations(conversations.map(conv => 
-            conv.id === currentConversation.id ? updatedConversation : conv
-          ));
-        } else {
-          // If no current conversation, fetch the updated conversation
-          fetchConversations();
-        }
+        // Update conversations list
+        setConversations(conversations.map(conv => 
+          conv.id === currentConversation.id ? updatedConversation : conv
+        ));
       }
+
     } catch (error) {
       console.error('Error sending message:', error);
+      const errorMessage = error instanceof ApiError 
+        ? `API Error: ${error.message}` 
+        : error instanceof NetworkError 
+        ? `Network Error: ${error.message}`
+        : 'Failed to send message';
+      
       toast({
         title: 'Error',
-        description: 'Failed to send message',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -306,9 +330,14 @@ export default function ChatPage() {
     }
   };
 
+  const sendMessage = async () => {
+    // Use streaming by default
+    return sendStreamingMessage();
+  };
+
   const deleteConversation = async (conversationId: string) => {
     try {
-      const response = await fetch(`http://localhost:3001/chat/conversations/${conversationId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/chat/conversations/${conversationId}`, {
         method: 'DELETE',
       });
 
@@ -332,12 +361,64 @@ export default function ChatPage() {
     }
   };
 
+  const startRenaming = (conversation: Conversation) => {
+    setEditingConversationId(conversation.id);
+    setEditingTitle(conversation.title);
+  };
+
+  const cancelRenaming = () => {
+    setEditingConversationId(null);
+    setEditingTitle('');
+  };
+
+  const saveRename = async (conversationId: string) => {
+    if (!editingTitle.trim()) {
+      cancelRenaming();
+      return;
+    }
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/chat/conversations/${conversationId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ title: editingTitle.trim() }),
+      });
+
+      if (response.ok) {
+        const updatedConversation = await response.json();
+        setConversations(conversations.map(conv => 
+          conv.id === conversationId ? { ...conv, title: updatedConversation.title } : conv
+        ));
+        
+        if (currentConversation?.id === conversationId) {
+          setCurrentConversation({ ...currentConversation, title: updatedConversation.title });
+        }
+        
+        toast({
+          title: 'Success',
+          description: 'Conversation renamed',
+        });
+        
+        cancelRenaming();
+      }
+    } catch (error) {
+      console.error('Error renaming conversation:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to rename conversation',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const formatTimestamp = (timestamp: string) => {
     return new Date(timestamp).toLocaleTimeString();
   };
 
   const renderChatTab = () => (
-    <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 h-[calc(100vh-12rem)]">
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 min-h-[calc(100vh-12rem)]">
       {/* Sidebar */}
       <div className="lg:col-span-1 space-y-4">
         <Card>
@@ -352,46 +433,113 @@ export default function ChatPage() {
         {/* Conversations List */}
         <Card className="flex-1 overflow-hidden">
           <CardHeader>
-            <CardTitle className="text-sm">Conversations</CardTitle>
+            <CardTitle className="text-sm">
+              Conversations ({conversations.length})
+            </CardTitle>
           </CardHeader>
-          <CardContent className="overflow-y-auto max-h-96">
+          <CardContent className="overflow-y-auto max-h-[60vh]">
             <div className="space-y-2">
               {conversations.map((conv) => (
                 <div
                   key={conv.id}
-                  className={`p-2 rounded cursor-pointer hover:bg-gray-100 ${
+                  className={`p-2 rounded hover:bg-gray-100 ${
                     currentConversation?.id === conv.id ? 'bg-blue-100' : ''
                   }`}
-                  onClick={() => setCurrentConversation(conv)}
                 >
                   <div className="flex justify-between items-start">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{conv.title}</p>
-                      <p className="text-xs text-gray-500">
-                        {conv.messages?.length || 0} messages
-                      </p>
-                      <div className="flex gap-1 mt-1">
-                        <Badge variant="outline" className="text-xs">
-                          {aiModels.find(m => m.id === conv.model)?.name || conv.model}
-                        </Badge>
-                        {conv.mcpServers?.length > 0 && (
-                          <Badge variant="secondary" className="text-xs">
-                            MCP
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteConversation(conv.id);
-                      }}
-                      className="text-red-500 hover:text-red-700"
+                    <div 
+                      className="flex-1 min-w-0 cursor-pointer"
+                      onClick={() => setCurrentConversation(conv)}
                     >
-                      ×
-                    </Button>
+                      {editingConversationId === conv.id ? (
+                        <div className="space-y-2">
+                          <Input
+                            value={editingTitle}
+                            onChange={(e) => setEditingTitle(e.target.value)}
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter') {
+                                saveRename(conv.id);
+                              } else if (e.key === 'Escape') {
+                                cancelRenaming();
+                              }
+                            }}
+                            onBlur={() => saveRename(conv.id)}
+                            className="text-sm"
+                            autoFocus
+                          />
+                          <div className="flex gap-1 text-xs">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                saveRename(conv.id);
+                              }}
+                              className="h-6 px-2"
+                            >
+                              Save
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                cancelRenaming();
+                              }}
+                              className="h-6 px-2"
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <p className="text-sm font-medium truncate">{conv.title}</p>
+                          <p className="text-xs text-gray-500">
+                            {conv.messages?.length || 0} messages
+                          </p>
+                          <div className="flex gap-1 mt-1">
+                            <Badge variant="outline" className="text-xs">
+                              {aiModels.find(m => m.id === conv.model)?.name || conv.model}
+                            </Badge>
+                            {conv.mcpServers?.length > 0 && (
+                              <Badge variant="secondary" className="text-xs">
+                                MCP
+                              </Badge>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    
+                    {editingConversationId !== conv.id && (
+                      <div className="flex gap-1 ml-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startRenaming(conv);
+                          }}
+                          className="text-blue-500 hover:text-blue-700 h-6 w-6 p-0"
+                          title="Rename conversation"
+                        >
+                          ✏️
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteConversation(conv.id);
+                          }}
+                          className="text-red-500 hover:text-red-700 h-6 w-6 p-0"
+                          title="Delete conversation"
+                        >
+                          🗑️
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -461,6 +609,44 @@ export default function ChatPage() {
                     )}
                   </div>
                 ))}
+
+                {/* Streaming Status and Message */}
+                {isStreaming && (
+                  <>
+                    {/* Status Indicator */}
+                    {streamingStatus && (
+                      <div className="flex gap-3 justify-start">
+                        <Avatar className="w-8 h-8 bg-blue-500 text-white flex items-center justify-center text-sm">
+                          AI
+                        </Avatar>
+                        <div className="max-w-[70%] p-3 rounded-lg bg-blue-50 border border-blue-200">
+                          <div className="flex items-center gap-2 text-blue-600">
+                            <div className="animate-spin w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                            <span className="text-sm">{streamingStatus}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Streaming AI Response */}
+                    {streamingMessage && (
+                      <div className="flex gap-3 justify-start">
+                        <Avatar className="w-8 h-8 bg-blue-500 text-white flex items-center justify-center text-sm">
+                          AI
+                        </Avatar>
+                        <div className="max-w-[70%] p-3 rounded-lg bg-gray-100 text-gray-900">
+                          <div className="whitespace-pre-wrap">{streamingMessage}</div>
+                          <div className="flex items-center gap-1 mt-2">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+                            <span className="text-xs text-gray-500 ml-2">Streaming...</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
                 <div ref={messagesEndRef} />
               </CardContent>
 
@@ -472,10 +658,10 @@ export default function ChatPage() {
                     onChange={(e) => setMessage(e.target.value)}
                     placeholder="Type your message..."
                     onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-                    disabled={isLoading}
+                    disabled={isLoading || isStreaming}
                   />
-                  <Button onClick={sendMessage} disabled={isLoading || !message.trim()}>
-                    {isLoading ? 'Sending...' : 'Send'}
+                  <Button onClick={sendMessage} disabled={isLoading || isStreaming || !message.trim()}>
+                    {isStreaming ? 'Streaming...' : isLoading ? 'Sending...' : 'Send'}
                   </Button>
                 </div>
               </div>
@@ -630,7 +816,7 @@ export default function ChatPage() {
   );
 
   return (
-    <div className="max-w-7xl mx-auto p-4">
+    <div className="w-full max-w-none mx-auto p-2 sm:p-4 lg:p-6">
       {/* Tab Navigation */}
       <div className="mb-6">
         <div className="border-b border-gray-200">

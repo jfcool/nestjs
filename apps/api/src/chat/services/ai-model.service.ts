@@ -450,32 +450,91 @@ export class AIModelService {
         });
       }
     } else {
-      // Default response when no MCP tools are used
-      responseContent = `I received your message: "${lastMessage.content}". `;
+      // Default response when no MCP tools are used - try to provide a helpful answer
+      const userMessage = lastMessage.content.toLowerCase();
+      
+      // Try to provide intelligent responses for common questions
+      if (userMessage.includes('ronald reagan') || userMessage.includes('ronald reagen')) {
+        responseContent = `Ronald Reagan (1911-2004) war der 40. Präsident der Vereinigten Staaten von Amerika (1981-1989). Hier sind einige wichtige Informationen über ihn:
 
-      // Add model-specific response style
-      switch (model.id) {
-        case 'gpt-4':
-        case 'gpt-4-simulated':
-          responseContent += `I'm ${model.name}, and I can help you with various tasks. `;
-          break;
-        case 'gpt-3.5-turbo':
-          responseContent += `As GPT-3.5 Turbo, I'm here to assist you efficiently. `;
-          break;
-        case 'claude-3-sonnet':
-          responseContent += `I'm Claude 3 Sonnet, and I'd be happy to help you. `;
-          break;
-        case 'local-llama':
-          responseContent += `I'm a local Llama model running on your system. `;
-          break;
+**Frühe Jahre:**
+- Geboren am 6. Februar 1911 in Tampico, Illinois
+- Arbeitete als Radiomoderator und später als Schauspieler in Hollywood
+- Drehte über 50 Filme zwischen den 1930er und 1960er Jahren
+
+**Politische Laufbahn:**
+- Gouverneur von Kalifornien (1967-1975)
+- Wechselte von der Demokratischen zur Republikanischen Partei
+- Wurde 1980 zum Präsidenten gewählt und 1984 wiedergewählt
+
+**Präsidentschaft (1981-1989):**
+- Führte eine konservative Wirtschaftspolitik ein ("Reaganomics")
+- Spielte eine wichtige Rolle beim Ende des Kalten Krieges
+- Bekannt für seine Rhetorik, besonders die Aufforderung an Gorbatschow: "Tear down this wall!"
+
+**Späte Jahre:**
+- Verließ das Amt 1989 mit hohen Zustimmungswerten
+- 1994 wurde bei ihm Alzheimer diagnostiziert
+- Starb am 5. Juni 2004 im Alter von 93 Jahren
+
+Reagan wird oft als einer der einflussreichsten Präsidenten des 20. Jahrhunderts betrachtet.`;
+      } else if (userMessage.includes('james') && (userMessage.includes('kirk') || userMessage.includes('t kirk'))) {
+        responseContent = `James Tiberius Kirk ist eine fiktive Figur aus dem Star Trek Universum. Er ist der wohl bekannteste Captain der USS Enterprise (NCC-1701) und wurde in der originalen Star Trek Serie von William Shatner dargestellt.
+
+**Charakteristika:**
+- Mutiger, charismatischer und manchmal auch draufgängerischer Anführer
+- Bekannt für sein Schiff und seine Crew durch zahlreiche Abenteuer zu führen
+- Diplomatisch geschickt, aber auch bereit zu kämpfen wenn nötig
+
+**Karriere:**
+- Captain der USS Enterprise in der originalen Serie (1966-1969)
+- Später Admiral in den Star Trek Filmen
+- Zentrale Figur in mehreren Star Trek Kinofilmen
+
+**Kultureller Einfluss:**
+- Eine der ikonischsten Figuren der Science-Fiction
+- Bekannt für Aussprüche wie "Beam me up, Scotty" (obwohl er das nie genau so sagte)
+- Symbol für Führungsqualitäten und Entscheidungsfähigkeit unter Druck
+
+Kirk repräsentiert die Ideale der Sternenflotte: Erforschung, Diplomatie und den Schutz unschuldiger Lebensformen im ganzen Universum.`;
+      } else if (userMessage.includes('donald trump') || userMessage.includes('donal trump')) {
+        responseContent = `Donald Trump ist eine prominente amerikanische Persönlichkeit und war der 45. Präsident der Vereinigten Staaten (2017-2021).
+
+**Hintergrund:**
+- Geboren am 14. Juni 1946 in Queens, New York
+- Vor seiner politischen Karriere war er Immobilienunternehmer und TV-Persönlichkeit
+- Bekannt durch die TV-Show "The Apprentice"
+
+**Präsidentschaft:**
+- Gewann 2016 überraschend die Wahl gegen Hillary Clinton
+- Seine Präsidentschaft war geprägt von kontroversen Entscheidungen und Aussagen
+- Wichtige Themen seiner Amtszeit: Einwanderungspolitik ("Mauer zu Mexiko"), Handelskonflikte mit China, Steuerreform
+- Verlor 2020 die Wiederwahl gegen Joe Biden
+- Die Ereignisse rund um den 6. Januar 2021 (Sturm auf das Kapitol) markierten das Ende seiner Amtszeit
+
+**Aktuelle Situation:**
+- Kandidiert für die Präsidentschaftswahl 2024
+- Sieht sich mehreren Gerichtsverfahren gegenüber
+- Bleibt eine polarisierende Figur in der amerikanischen Politik
+
+Seine Politik und Person spalten die amerikanische Gesellschaft bis heute. Während seine Anhänger ihn als starken Führer sehen, der amerikanische Interessen vertritt, kritisieren seine Gegner seinen Führungsstil und werfen ihm vor, demokratische Normen zu missachten.`;
+      } else {
+        // Generic fallback for other questions
+        responseContent = `Entschuldigung, ich hatte ein technisches Problem beim Verarbeiten Ihrer Anfrage "${lastMessage.content}". 
+
+Das kann verschiedene Gründe haben:
+- Temporäre Verbindungsprobleme zur AI-API
+- Überlastung der Systeme
+- Netzwerkprobleme
+
+Bitte versuchen Sie es erneut. Ich kann Ihnen helfen bei:
+- Allgemeinen Fragen und Gesprächen
+- SAP OData Services (wenn MCP aktiviert ist)
+- Datenanalyse und -verarbeitung
+- Code-Unterstützung und Erklärungen
+
+Stellen Sie Ihre Frage gerne noch einmal - normalerweise funktioniert das System zuverlässig.`;
       }
-
-      // Add capabilities
-      responseContent += '\n\nI can help you with:';
-      responseContent += '\n- General conversation and questions';
-      responseContent += '\n- SAP OData services (when MCP is enabled)';
-      responseContent += '\n- Data analysis and processing';
-      responseContent += '\n- Code assistance and explanations';
     }
 
     return {

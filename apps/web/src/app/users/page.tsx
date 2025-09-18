@@ -257,7 +257,7 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-5">
+    <div className="w-full max-w-none mx-auto p-2 sm:p-4 lg:p-6">
       {/* Header */}
       <Card className="mb-6">
         <CardHeader>

@@ -1,5 +1,7 @@
-import { Controller, Get, Post, Body, Param, Delete, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, Put, NotFoundException, Sse, Res } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags, ApiCreatedResponse, ApiParam } from '@nestjs/swagger';
+import { Observable, Subject } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { ChatService } from './chat.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { SendMessageDto } from './dto/send-message.dto';
@@ -9,6 +11,8 @@ import { Message } from './entities/message.entity';
 @ApiTags('chat')
 @Controller('chat')
 export class ChatController {
+  private streamingSubjects = new Map<string, Subject<any>>();
+
   constructor(private readonly chatService: ChatService) {}
 
   @Get('conversations')
@@ -43,6 +47,17 @@ export class ChatController {
       throw new NotFoundException(`Conversation with ID ${id} not found`);
     }
     return { deleted };
+  }
+
+  @Put('conversations/:id')
+  @ApiOperation({ operationId: 'updateConversation' })
+  @ApiParam({ name: 'id', type: 'string' })
+  @ApiOkResponse({ type: Conversation })
+  async updateConversation(
+    @Param('id') id: string,
+    @Body() updateData: { title?: string }
+  ): Promise<Conversation> {
+    return this.chatService.updateConversation(id, updateData);
   }
 
   @Post('messages')
@@ -242,5 +257,135 @@ export class ChatController {
   })
   async getAllModels() {
     return this.chatService.getAllModels();
+  }
+
+  @Get('messages/stream/:sessionId')
+  @ApiOperation({ operationId: 'streamMessage' })
+  streamMessage(@Param('sessionId') sessionId: string, @Res() res: any): void {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Cache-Control'
+    });
+
+    const subject = new Subject();
+    this.streamingSubjects.set(sessionId, subject);
+    
+    const subscription = subject.asObservable().subscribe({
+      next: (data) => {
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+      },
+      complete: () => {
+        res.end();
+        subscription.unsubscribe();
+      },
+      error: (error) => {
+        res.write(`data: ${JSON.stringify({ type: 'error', message: error.message })}\n\n`);
+        res.end();
+        subscription.unsubscribe();
+      }
+    });
+
+    // Clean up on client disconnect
+    res.on('close', () => {
+      subscription.unsubscribe();
+      this.streamingSubjects.delete(sessionId);
+    });
+  }
+
+  @Post('messages/stream')
+  @ApiOperation({ operationId: 'sendStreamingMessage' })
+  async sendStreamingMessage(@Body() dto: SendMessageDto & { sessionId: string }): Promise<{ sessionId: string }> {
+    const sessionId = dto.sessionId || Date.now().toString();
+    const subject = this.streamingSubjects.get(sessionId);
+    
+    if (!subject) {
+      throw new NotFoundException(`Streaming session ${sessionId} not found`);
+    }
+
+    // Send immediate confirmation that user message was received
+    subject.next({
+      type: 'user_message',
+      content: dto.content,
+      timestamp: new Date().toISOString()
+    });
+
+    // Process message asynchronously
+    this.processStreamingMessage(dto, sessionId, subject);
+    
+    return { sessionId };
+  }
+
+  private async processStreamingMessage(dto: SendMessageDto, sessionId: string, subject: Subject<any>) {
+    try {
+      // Send processing status
+      subject.next({
+        type: 'status',
+        message: 'Verarbeite Ihre Anfrage...',
+        timestamp: new Date().toISOString()
+      });
+
+      // Simulate MCP tool analysis
+      if (dto.useMcp) {
+        subject.next({
+          type: 'status',
+          message: 'Analysiere verfügbare MCP-Tools...',
+          timestamp: new Date().toISOString()
+        });
+        
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      // Send AI processing status
+      subject.next({
+        type: 'status',
+        message: 'Generiere AI-Antwort...',
+        timestamp: new Date().toISOString()
+      });
+
+      // Get the actual response
+      const result = await this.chatService.sendMessage(dto);
+      
+      // Stream the response word by word
+      const words = result.assistantMessage.content.split(' ');
+      let streamedContent = '';
+      
+      for (let i = 0; i < words.length; i++) {
+        streamedContent += (i > 0 ? ' ' : '') + words[i];
+        
+        subject.next({
+          type: 'assistant_message_chunk',
+          content: streamedContent,
+          isComplete: i === words.length - 1,
+          timestamp: new Date().toISOString()
+        });
+        
+        // Small delay between words for streaming effect
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+
+      // Send final complete message
+      subject.next({
+        type: 'complete',
+        userMessage: result.userMessage,
+        assistantMessage: result.assistantMessage,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      subject.next({
+        type: 'error',
+        message: error.message,
+        timestamp: new Date().toISOString()
+      });
+    } finally {
+      // Clean up after 30 seconds
+      setTimeout(() => {
+        subject.complete();
+        this.streamingSubjects.delete(sessionId);
+      }, 30000);
+    }
   }
 }

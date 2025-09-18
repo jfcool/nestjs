@@ -417,7 +417,7 @@ export default function ConnectionsPage() {
         </p>
       </div>
 
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px' }}>
+      <div style={{ width: '100%', maxWidth: 'none', margin: '0 auto', padding: '12px 16px' }} className="sm:px-6 lg:px-8">
         {/* Actions */}
         <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2 style={{ fontSize: '1.5rem', fontWeight: '600', margin: 0 }}>

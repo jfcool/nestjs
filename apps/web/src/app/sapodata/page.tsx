@@ -158,7 +158,7 @@ export default function SapODataExplorer() {
 
   const fetchStoredConnections = async () => {
     try {
-      const response = await fetch('http://localhost:3002/sapodata/connections');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/sapodata/connections`);
       if (response.ok) {
         const connections = await response.json();
         setStoredConnections(connections);
@@ -184,7 +184,7 @@ export default function SapODataExplorer() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`http://localhost:3002/sapodata/connection/${selectedConnection.id}/catalog`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/sapodata/connection/${selectedConnection.id}/catalog`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -227,7 +227,7 @@ export default function SapODataExplorer() {
 
       const metadataPath = new URL(service.MetadataUrl).pathname;
       
-      const response = await fetch(`http://localhost:3002/sapodata/connection/${selectedConnection.id}/metadata`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/sapodata/connection/${selectedConnection.id}/metadata`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -266,7 +266,7 @@ export default function SapODataExplorer() {
 
       const dataPath = `${new URL(service.ServiceUrl).pathname}/`;
       
-      const response = await fetch(`http://localhost:3002/sapodata/connection/${selectedConnection.id}/data`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/sapodata/connection/${selectedConnection.id}/data`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -350,7 +350,7 @@ export default function SapODataExplorer() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
+    <div style={{ width: '100%', maxWidth: 'none', backgroundColor: '#f5f5f5' }}>
       {/* Header */}
       <div style={{ backgroundColor: '#1e3a8a', color: 'white', padding: '24px' }}>
         <h1 style={{ fontSize: '2rem', fontWeight: 'bold', margin: '0 0 8px 0' }}>
@@ -361,7 +361,7 @@ export default function SapODataExplorer() {
         </p>
       </div>
 
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px' }}>
+      <div style={{ width: '100%', maxWidth: 'none', margin: '0 auto', padding: '12px 16px' }} className="sm:px-6 lg:px-8">
         {/* Connection Selection Card */}
         <div style={{ 
           backgroundColor: 'white', 
