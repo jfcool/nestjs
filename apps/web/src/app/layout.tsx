@@ -43,6 +43,12 @@ export default function RootLayout({
                 >
                   🔗 SAP OData
                 </Link>
+                <Link 
+                  href="/chat" 
+                  className="text-blue-300 no-underline px-4 py-2 rounded-md hover:bg-gray-700 hover:text-blue-200 transition-colors"
+                >
+                  💬 Chat AI
+                </Link>
               </div>
             </div>
           </nav>

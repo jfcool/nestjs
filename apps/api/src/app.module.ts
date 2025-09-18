@@ -1,17 +1,25 @@
 import { Module, OnModuleInit } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
 import { SapModule } from './sap/sap.module';
+import { ChatModule } from './chat/chat.module';
 import { User } from './users/user.entity';
 import { Connection } from './sap/entities/sap-connection.entity';
 import { SapSecret } from './sap/entities/sap-secret.entity';
+import { Conversation } from './chat/entities/conversation.entity';
+import { Message } from './chat/entities/message.entity';
 import { seedUsers } from './users/seed-users';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: ['.env', '../.env', '../../.env'],
+    }),
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: process.env.DB_HOST || 'localhost',
@@ -19,12 +27,13 @@ import { seedUsers } from './users/seed-users';
       username: process.env.DB_USERNAME || 'postgres',
       password: process.env.DB_PASSWORD || 'joe',
       database: process.env.DB_NAME || 'nestjs_app',
-      entities: [User, Connection, SapSecret],
+      entities: [User, Connection, SapSecret, Conversation, Message],
       synchronize: process.env.NODE_ENV !== 'production', // Auto-create tables in development
       logging: process.env.NODE_ENV === 'development',
     }),
     UsersModule,
     SapModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [AppService],
