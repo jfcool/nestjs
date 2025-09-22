@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
 import { toast } from '@/hooks/use-toast';
 import { api, ApiError, NetworkError } from '@/lib/api-client';
+import { useTranslation } from '@/lib/i18n';
 
 interface Message {
   id: string;
@@ -57,6 +58,7 @@ interface AIModel {
 type TabType = 'chat' | 'config';
 
 export default function ChatPage() {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabType>('chat');
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
@@ -430,9 +432,9 @@ export default function ChatPage() {
       <div className="lg:col-span-1 space-y-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">💬 Chat AI</CardTitle>
+            <CardTitle className="text-lg">💬 {t('chat.title')}</CardTitle>
             <Button onClick={createNewConversation} className="w-full">
-              New Conversation
+              {t('chat.newConversation')}
             </Button>
           </CardHeader>
         </Card>
@@ -441,7 +443,7 @@ export default function ChatPage() {
         <Card className="flex-1 overflow-hidden">
           <CardHeader>
             <CardTitle className="text-sm">
-              Conversations ({conversations.length})
+              {t('chat.conversations')} ({conversations.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="overflow-y-auto max-h-[60vh]">
@@ -560,7 +562,7 @@ export default function ChatPage() {
         <Card className="flex-1 flex flex-col">
           <CardHeader>
             <CardTitle className="text-lg">
-              {currentConversation ? currentConversation.title : 'Select a conversation or create a new one'}
+              {currentConversation ? currentConversation.title : t('chat.selectConversation')}
             </CardTitle>
             {currentConversation && (
               <div className="flex gap-2">
@@ -663,12 +665,12 @@ export default function ChatPage() {
                   <Input
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Type your message..."
+                    placeholder={t('chat.messagePlaceholder')}
                     onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                     disabled={isLoading || isStreaming}
                   />
                   <Button onClick={sendMessage} disabled={isLoading || isStreaming || !message.trim()}>
-                    {isStreaming ? 'Streaming...' : isLoading ? 'Sending...' : 'Send'}
+                    {isStreaming ? t('chat.streaming') : isLoading ? t('chat.sending') : t('chat.sendMessage')}
                   </Button>
                 </div>
               </div>
@@ -684,11 +686,11 @@ export default function ChatPage() {
       {/* AI Models Configuration */}
       <Card>
         <CardHeader>
-          <CardTitle>AI Models</CardTitle>
+          <CardTitle>{t('chat.aiModels')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <label className="text-sm font-medium">Default Model</label>
+            <label className="text-sm font-medium">{t('chat.defaultModel')}</label>
             <div className="mt-2 space-y-2">
               {aiModels.map((model) => (
                 <div key={model.id} className="flex items-center space-x-3 p-3 border rounded-lg">
@@ -836,7 +838,7 @@ export default function ChatPage() {
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              💬 Chat
+              💬 {t('chat.chatTab')}
             </button>
             <button
               onClick={() => setActiveTab('config')}
@@ -846,7 +848,7 @@ export default function ChatPage() {
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              ⚙️ Configuration
+              ⚙️ {t('chat.configurationTab')}
             </button>
           </nav>
         </div>

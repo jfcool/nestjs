@@ -41,6 +41,7 @@ import { useRouter } from 'next/navigation';
 import EntitySetsViewer from './components/EntitySetsViewer';
 import SapCloudSdkViewer from './components/SapCloudSdkViewer';
 import { api, ApiError, NetworkError } from '@/lib/api-client';
+import { useTranslation } from '@/lib/i18n';
 
 interface ODataService {
   ServiceUrl: string | URL;
@@ -92,6 +93,7 @@ interface SapODataResponse {
 }
 
 export default function SapODataExplorer() {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'services' | 'metadata' | 'data' | 'entitysets' | 'cloudsdk'>('services');
   const [loading, setLoading] = useState(false);
   const [services, setServices] = useState<ODataService[]>([]);
@@ -343,10 +345,10 @@ export default function SapODataExplorer() {
       {/* Header */}
       <div style={{ backgroundColor: '#1e3a8a', color: 'white', padding: '24px' }}>
         <h1 style={{ fontSize: '2rem', fontWeight: 'bold', margin: '0 0 8px 0' }}>
-          SAP OData Services Explorer
+          {t('sap.title')}
         </h1>
         <p style={{ color: '#bfdbfe', margin: 0 }}>
-          Explore, analyze and interact with SAP S/4HANA OData services
+          {t('sap.description')}
         </p>
       </div>
 
@@ -362,7 +364,7 @@ export default function SapODataExplorer() {
           <div style={{ padding: '16px', borderBottom: '1px solid #e5e7eb' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h2 style={{ fontSize: '1.25rem', fontWeight: '600', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                🔗 Connection Selection
+                🔗 {t('sap.connections')}
               </h2>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
@@ -699,7 +701,7 @@ export default function SapODataExplorer() {
               {loading ? (
                 <div style={{ textAlign: 'center', padding: '48px' }}>
                   <div style={{ fontSize: '24px', marginBottom: '16px' }}>⏳</div>
-                  <p>Loading services...</p>
+                  <p>{t('sap.loadingServices')}</p>
                 </div>
               ) : services.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '48px' }}>

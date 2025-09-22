@@ -28,10 +28,19 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DataTable } from '@/components/ui/data-table';
 import { useToast } from '@/hooks/use-toast';
+import { useTranslation } from '@/lib/i18n';
 
 export default function UsersPage() {
   const { data, isLoading, isError } = useGetUsers();
-  const users = (data?.data as UserDto[]) ?? [];
+  
+  // Extract users from API response - the API client wraps responses in { data: T }
+  const users = Array.isArray(data?.data) ? (data.data as UserDto[]) : [];
+  
+  console.log('🔍 Debug - Raw data:', data);
+  console.log('🔍 Debug - Users:', users);
+  console.log('🔍 Debug - Loading:', isLoading);
+  console.log('🔍 Debug - Error:', isError);
+  
   const [searchText, setSearchText] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -40,21 +49,22 @@ export default function UsersPage() {
   const [userToDelete, setUserToDelete] = useState<UserDto | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   const deleteUserMutation = useDeleteUserCustom({
     mutation: {
       onSuccess: () => {
         toast({
-          title: "Erfolg",
-          description: "Benutzer erfolgreich gelöscht!",
+          title: t('common.success'),
+          description: t('users.userDeleted'),
         });
         queryClient.invalidateQueries({ queryKey: getGetUsersQueryKey() });
       },
       onError: (error: any) => {
         console.error('Error deleting user:', error);
         toast({
-          title: "Fehler",
-          description: "Fehler beim Löschen des Benutzers. Bitte versuchen Sie es erneut.",
+          title: t('common.error'),
+          description: t('users.deleteError'),
           variant: "destructive",
         });
       },
@@ -118,7 +128,7 @@ export default function UsersPage() {
   // AG Grid column definitions
   const columnDefs: ColDef[] = useMemo(() => [
     {
-      headerName: 'Benutzer Information',
+      headerName: t('users.userInfo'),
       field: 'name',
       width: 250,
       cellRenderer: (params: any) => {
@@ -135,7 +145,7 @@ export default function UsersPage() {
                 {user.name}
               </div>
               <div className="text-xs text-muted-foreground">
-                Benutzer #{user.id}
+                {t('users.name')} #{user.id}
               </div>
             </div>
           </div>
@@ -144,7 +154,7 @@ export default function UsersPage() {
       comparator: (valueA, valueB) => valueA.localeCompare(valueB),
     },
     {
-      headerName: 'E-Mail',
+      headerName: t('users.email'),
       field: 'email',
       width: 200,
       cellRenderer: (params: any) => {
@@ -159,7 +169,7 @@ export default function UsersPage() {
             ) : (
               <>
                 <AlertCircle className="h-4 w-4 text-amber-500" />
-                <span className="text-sm text-muted-foreground">Keine E-Mail</span>
+                <span className="text-sm text-muted-foreground">{t('users.noEmail')}</span>
               </>
             )}
           </div>
@@ -168,7 +178,7 @@ export default function UsersPage() {
       comparator: (valueA, valueB) => (valueA || '').localeCompare(valueB || ''),
     },
     {
-      headerName: 'ID',
+      headerName: t('users.id'),
       field: 'id',
       width: 80,
       cellRenderer: (params: any) => (
@@ -179,7 +189,7 @@ export default function UsersPage() {
       comparator: (valueA, valueB) => valueA - valueB,
     },
     {
-      headerName: 'Status',
+      headerName: t('users.status'),
       field: 'email',
       width: 120,
       cellRenderer: (params: any) => {
@@ -189,12 +199,12 @@ export default function UsersPage() {
             {hasEmail ? (
               <>
                 <CheckCircle className="h-3 w-3" />
-                Vollständig
+                {t('users.complete')}
               </>
             ) : (
               <>
                 <AlertCircle className="h-3 w-3" />
-                Unvollständig
+                {t('users.incomplete')}
               </>
             )}
           </Badge>
@@ -203,7 +213,7 @@ export default function UsersPage() {
       comparator: (valueA, valueB) => (!!valueA ? 1 : 0) - (!!valueB ? 1 : 0),
     },
     {
-      headerName: 'Aktionen',
+      headerName: t('common.actions'),
       width: 120,
       sortable: false,
       filter: false,
@@ -232,7 +242,7 @@ export default function UsersPage() {
         );
       },
     },
-  ], [deleteUserMutation.isPending]);
+  ], [deleteUserMutation.isPending, t]);
 
   if (isError) {
     return (
@@ -241,14 +251,14 @@ export default function UsersPage() {
           <CardContent className="text-center py-16">
             <div className="text-6xl mb-4">⚠️</div>
             <h3 className="text-xl font-semibold text-destructive mb-2">
-              Verbindungsfehler
+              {t('users.connectionError')}
             </h3>
             <p className="text-muted-foreground mb-6">
-              Fehler beim Laden der Benutzerliste. Bitte versuchen Sie es erneut.
+              {t('users.connectionErrorDesc')}
             </p>
             <Button onClick={() => window.location.reload()} className="gap-2">
               <RefreshCw className="h-4 w-4" />
-              Erneut versuchen
+              {t('users.retryButton')}
             </Button>
           </CardContent>
         </Card>
@@ -264,10 +274,10 @@ export default function UsersPage() {
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="text-center lg:text-left">
               <CardTitle className="text-2xl text-primary flex items-center justify-center lg:justify-start gap-2">
-                🔗 Benutzerverwaltung
+                🔗 {t('users.title')}
               </CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                Verwalten Sie Benutzerkonten und deren Informationen
+                {t('users.description')}
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
@@ -276,11 +286,11 @@ export default function UsersPage() {
                 className="gap-2"
               >
                 <Plus className="h-4 w-4" />
-                Benutzer hinzufügen
+                {t('users.addUser')}
               </Button>
               <div className="text-xs text-muted-foreground text-center sm:text-right">
-                <div>System bereit</div>
-                <div>{users.length} Benutzer geladen</div>
+                <div>{t('users.systemReady')}</div>
+                <div>{t('users.usersLoaded', { count: users.length })}</div>
               </div>
             </div>
           </div>
@@ -293,7 +303,7 @@ export default function UsersPage() {
           <CardContent className="text-center p-4">
             <div className="flex items-center justify-center gap-2 mb-2">
               <Users className="h-5 w-5 text-primary" />
-              <span className="text-sm font-medium">Gesamt Benutzer</span>
+              <span className="text-sm font-medium">{t('users.totalUsers')}</span>
             </div>
             <div className="text-2xl font-bold text-primary">{stats.total}</div>
           </CardContent>
@@ -302,7 +312,7 @@ export default function UsersPage() {
           <CardContent className="text-center p-4">
             <div className="flex items-center justify-center gap-2 mb-2">
               <Mail className="h-5 w-5 text-green-500" />
-              <span className="text-sm font-medium">Mit E-Mail</span>
+              <span className="text-sm font-medium">{t('users.withEmail')}</span>
             </div>
             <div className="text-2xl font-bold text-green-500">{stats.withEmail}</div>
           </CardContent>
@@ -311,7 +321,7 @@ export default function UsersPage() {
           <CardContent className="text-center p-4">
             <div className="flex items-center justify-center gap-2 mb-2">
               <AlertCircle className="h-5 w-5 text-amber-500" />
-              <span className="text-sm font-medium">Ohne E-Mail</span>
+              <span className="text-sm font-medium">{t('users.withoutEmail')}</span>
             </div>
             <div className="text-2xl font-bold text-amber-500">{stats.withoutEmail}</div>
           </CardContent>
@@ -320,7 +330,7 @@ export default function UsersPage() {
           <CardContent className="text-center p-4">
             <div className="flex items-center justify-center gap-2 mb-2">
               <Zap className="h-5 w-5 text-purple-500" />
-              <span className="text-sm font-medium">Kürzlich erstellt</span>
+              <span className="text-sm font-medium">{t('users.recentlyCreated')}</span>
             </div>
             <div className="text-2xl font-bold text-purple-500">
               {stats.recentlyCreated}
@@ -336,12 +346,12 @@ export default function UsersPage() {
           <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
             <div className="flex-1">
               <label className="text-sm font-medium mb-2 block">
-                Benutzer suchen:
+                {t('common.search')}:
               </label>
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Benutzer suchen..."
+                  placeholder={t('users.searchPlaceholder')}
                   value={searchText}
                   onChange={(e) => setSearchText(e.target.value)}
                   className="pl-10"
@@ -349,8 +359,8 @@ export default function UsersPage() {
               </div>
             </div>
             <div className="text-sm text-muted-foreground">
-              Zeige {filteredUsers.length} von {users.length} Benutzern
-              {searchText && ` (gefiltert nach "${searchText}")`}
+              {t('users.showingUsers', { filtered: filteredUsers.length, total: users.length })}
+              {searchText && ` ${t('users.filteredBy', { search: searchText })}`}
             </div>
           </div>
         </CardContent>
@@ -363,10 +373,10 @@ export default function UsersPage() {
             <div className="text-center py-16">
               <div className="text-6xl mb-6">🚀</div>
               <h3 className="text-xl font-semibold text-primary mb-4">
-                Willkommen zur Benutzerverwaltung
+                {t('users.welcomeTitle')}
               </h3>
               <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-                Erstellen Sie Ihren ersten Benutzer, um loszulegen.
+                {t('users.welcomeDesc')}
               </p>
               <Button
                 onClick={() => setModalVisible(true)}
@@ -374,7 +384,7 @@ export default function UsersPage() {
                 className="gap-2"
               >
                 <Plus className="h-5 w-5" />
-                Ersten Benutzer erstellen
+                {t('users.createFirstUser')}
               </Button>
             </div>
           ) : (

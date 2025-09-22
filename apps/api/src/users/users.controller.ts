@@ -1,15 +1,21 @@
-import { Controller, Get, Post, Body, Param, Put, Delete, NotFoundException } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiTags, ApiCreatedResponse, ApiParam } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Param, Put, Delete, NotFoundException, UseGuards } from '@nestjs/common';
+import { ApiOkResponse, ApiOperation, ApiTags, ApiCreatedResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
+import { AuthGuard } from '@nestjs/passport';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { UsersService } from './users.service';
 import { UserDto } from './user.dto';
 import { CreateUserDto } from './create-user.dto';
 
 @ApiTags('users')
+@ApiBearerAuth()
+@UseGuards(AuthGuard('jwt'), PermissionsGuard)
 @Controller('users')
 export class UsersController {
   constructor(private readonly users: UsersService) {}
 
   @Get()
+  @RequirePermissions('users')
   @ApiOperation({ operationId: 'getUsers' })
   @ApiOkResponse({ type: UserDto, isArray: true })
   async getUsers(): Promise<UserDto[]> {
@@ -17,6 +23,7 @@ export class UsersController {
   }
 
   @Get(':id')
+  @RequirePermissions('users')
   @ApiOperation({ operationId: 'getUserById' })
   @ApiParam({ name: 'id', type: 'number' })
   @ApiOkResponse({ type: UserDto })
@@ -29,6 +36,7 @@ export class UsersController {
   }
 
   @Post()
+  @RequirePermissions('users')
   @ApiOperation({ operationId: 'createUser' })
   @ApiCreatedResponse({ type: UserDto })
   async create(@Body() dto: CreateUserDto): Promise<UserDto> {
@@ -36,6 +44,7 @@ export class UsersController {
   }
 
   @Put(':id')
+  @RequirePermissions('users')
   @ApiOperation({ operationId: 'updateUser' })
   @ApiParam({ name: 'id', type: 'number' })
   @ApiOkResponse({ type: UserDto })
@@ -48,6 +57,7 @@ export class UsersController {
   }
 
   @Delete(':id')
+  @RequirePermissions('users')
   @ApiOperation({ operationId: 'deleteUser' })
   @ApiParam({ name: 'id', type: 'number' })
   @ApiOkResponse({ type: 'boolean' })

@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AuthGuard } from '@/components/AuthGuard';
 import { api } from '@/lib/api-client';
+import { useTranslation } from '@/lib/i18n';
 
 interface DashboardStats {
   totalApplications: number;
@@ -31,6 +32,7 @@ interface DashboardStats {
 }
 
 export default function DashboardPage() {
+  const { t } = useTranslation();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +62,7 @@ export default function DashboardPage() {
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">Loading dashboard...</p>
+              <p className="text-gray-600">{t('common.loading')}...</p>
             </div>
           </div>
         </div>
@@ -75,7 +77,7 @@ export default function DashboardPage() {
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <div className="text-red-500 text-xl mb-2">⚠️</div>
-              <p className="text-gray-600">{error || 'Failed to load dashboard data'}</p>
+              <p className="text-gray-600">{error || t('errors.generic')}</p>
             </div>
           </div>
         </div>
@@ -93,8 +95,8 @@ export default function DashboardPage() {
               <span className="text-2xl">🏠</span>
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-              <p className="text-gray-600">Welcome to Joe's Playground - Your central hub for all applications</p>
+              <h1 className="text-3xl font-bold text-gray-900">{t('dashboard.title')}</h1>
+              <p className="text-gray-600">{t('dashboard.welcome')}</p>
             </div>
           </div>
         </div>
@@ -105,7 +107,7 @@ export default function DashboardPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total Applications</p>
+                  <p className="text-sm font-medium text-gray-600">{t('dashboard.statistics.totalApplications')}</p>
                   <p className="text-2xl font-bold text-gray-900">{stats.totalApplications}</p>
                 </div>
                 <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -119,7 +121,7 @@ export default function DashboardPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Active Users</p>
+                  <p className="text-sm font-medium text-gray-600">{t('dashboard.statistics.activeUsers')}</p>
                   <p className="text-2xl font-bold text-gray-900">{stats.activeUsers}</p>
                 </div>
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -133,7 +135,7 @@ export default function DashboardPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">System Status</p>
+                  <p className="text-sm font-medium text-gray-600">{t('dashboard.statistics.systemStatus')}</p>
                   <p className="text-2xl font-bold text-green-600">{stats.systemStatus}</p>
                 </div>
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -146,7 +148,7 @@ export default function DashboardPage() {
 
         {/* Applications Grid */}
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Applications</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">{t('dashboard.applications')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {stats.applications.map((app) => (
               <Link key={app.id} href={app.href} className="group">
@@ -171,7 +173,7 @@ export default function DashboardPage() {
                       {app.description}
                     </p>
                     <div className="flex items-center text-blue-600 text-sm font-medium group-hover:text-blue-700">
-                      <span>Open Application</span>
+                      <span>{t('dashboard.openApplication')}</span>
                       <svg className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
@@ -188,7 +190,7 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <span className="text-xl">📊</span>
-              Recent Activity
+              {t('dashboard.recentActivity')}
             </CardTitle>
           </CardHeader>
           <CardContent>

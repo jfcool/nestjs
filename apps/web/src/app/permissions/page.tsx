@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { DataTable } from '@/components/ui/data-table';
 import { api } from '@/lib/api-client';
+import { useTranslation } from '@/lib/i18n';
 
 interface Role {
   id: number;
@@ -28,6 +29,7 @@ interface User {
 }
 
 export default function PermissionsPage() {
+  const { t } = useTranslation();
   const [roles, setRoles] = useState<Role[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [availablePermissions, setAvailablePermissions] = useState<string[]>([]);
@@ -138,24 +140,24 @@ export default function PermissionsPage() {
   };
 
   if (isLoading) {
-    return <div className="p-6">Loading permissions...</div>;
+    return <div className="p-6">{t('permissions.loadingPermissions')}</div>;
   }
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Permissions Management</h1>
+        <h1 className="text-3xl font-bold">{t('permissions.title')}</h1>
         <Button onClick={() => setShowCreateRole(true)}>
-          Create New Role
+          {t('permissions.createNewRole')}
         </Button>
       </div>
 
       {/* Roles Section */}
       <Card>
         <CardHeader>
-          <CardTitle>Roles</CardTitle>
+          <CardTitle>{t('permissions.roles')}</CardTitle>
           <CardDescription>
-            Manage system roles and their permissions
+            {t('permissions.rolesDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -176,7 +178,7 @@ export default function PermissionsPage() {
                       ))}
                     </div>
                     <p className="text-xs text-gray-500 mt-2">
-                      Users: {role.users?.length || 0}
+                      {t('permissions.users')}: {role.users?.length || 0}
                     </p>
                   </div>
                   <Button
@@ -184,7 +186,7 @@ export default function PermissionsPage() {
                     size="sm"
                     onClick={() => handleDeleteRole(role.id)}
                   >
-                    Delete
+                    {t('common.delete')}
                   </Button>
                 </div>
               </div>
@@ -196,9 +198,9 @@ export default function PermissionsPage() {
       {/* Users Section */}
       <Card>
         <CardHeader>
-          <CardTitle>Users & Role Assignments</CardTitle>
+          <CardTitle>{t('permissions.usersRoleAssignments')}</CardTitle>
           <CardDescription>
-            View and manage user role assignments
+            {t('permissions.usersRoleAssignmentsDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -235,7 +237,7 @@ export default function PermissionsPage() {
                     }}
                     value=""
                   >
-                    <option value="">Add Role</option>
+                    <option value="">{t('permissions.addRole')}</option>
                     {roles
                       .filter(role => !user.roles.some(ur => ur.id === role.id))
                       .map(role => (

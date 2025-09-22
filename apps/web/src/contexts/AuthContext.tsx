@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, ApiError, NetworkError } from '@/lib/api-client';
+import { apiClient, ApiError, NetworkError } from '@acme/api-types/src/api-client';
 
 interface User {
   id: number;
@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (username: string, password: string): Promise<boolean> => {
     try {
-      const response = await api.auth.login({ username, password });
+      const response = await apiClient.post('/auth/login', { username, password });
       
       sessionStorage.setItem('token', response.data.access_token);
       sessionStorage.setItem('user', JSON.stringify(response.data.user));

@@ -5,30 +5,35 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Settings, Lock, LogOut, ChevronDown } from 'lucide-react';
+import { Settings, Lock, LogOut, ChevronDown, Globe } from 'lucide-react';
 import ChangePasswordModal from './ChangePasswordModal';
+import LanguageSwitcher from './LanguageSwitcher';
+import { useTranslation } from '@/lib/i18n';
 
-const routes = [
-  { path: '/', name: 'Home', icon: '🏠' },
-  { path: '/dashboard', name: 'Dashboard', icon: '📊', permission: 'dashboard' },
-  { path: '/users', name: 'Users', icon: '👥', permission: 'users' },
-  { path: '/sapodata', name: 'SAP OData', icon: '🔗', permission: 'sapodata' },
-  { path: '/chat', name: 'Chat AI', icon: '💬', permission: 'chat' },
-  { path: '/permissions', name: 'Permissions', icon: '🔐', permission: 'permissions' },
+const getRoutes = (t: any) => [
+  { path: '/', name: t('navigation.home'), icon: '🏠' },
+  { path: '/dashboard', name: t('navigation.dashboard'), icon: '📊', permission: 'dashboard' },
+  { path: '/users', name: t('navigation.users'), icon: '👥', permission: 'users' },
+  { path: '/sapodata', name: t('navigation.sapOData'), icon: '🔗', permission: 'sapodata' },
+  { path: '/chat', name: t('navigation.chat'), icon: '💬', permission: 'chat' },
+  { path: '/permissions', name: t('navigation.permissions'), icon: '🔐', permission: 'permissions' },
 ];
 
 export default function Navigation() {
   const pathname = usePathname();
   const { user, logout, hasPermission, isLoading } = useAuth();
+  const { t } = useTranslation();
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+
+  const routes = getRoutes(t);
 
   // Update document title based on current route
   useEffect(() => {
     const currentRoute = routes.find(route => route.path === pathname);
     const routeName = currentRoute ? currentRoute.name : 'Page';
-    document.title = `${routeName} - Joe's Playground`;
-  }, [pathname]);
+    document.title = `${routeName} - ${t('navigation.appTitle')}`;
+  }, [pathname, t]);
 
   const isActive = (path: string) => {
     if (path === '/') {
@@ -85,36 +90,41 @@ export default function Navigation() {
               {user && (
                 <div className="flex items-center gap-3 ml-4 border-l border-gray-600 pl-4">
                   <span className="text-blue-200 text-sm">
-                    Welcome, {user.name}
+                    {t('navigation.welcome')}, {user.name}
                   </span>
                   
                   {/* User Menu Dropdown */}
                   <div className="relative">
-                    <Button
+                    <button
                       onClick={() => setShowUserMenu(!showUserMenu)}
-                      variant="outline"
-                      size="sm"
-                      className="text-white border-gray-600 hover:bg-gray-700 flex items-center gap-1"
+                      className="no-underline px-4 py-2 rounded-md transition-colors text-blue-300 hover:bg-gray-700 hover:text-blue-200 flex items-center gap-2"
                     >
                       <Settings className="h-4 w-4" />
                       <ChevronDown className="h-3 w-3" />
-                    </Button>
+                    </button>
                     
                     {showUserMenu && (
                       <div className="absolute right-0 top-full mt-2 bg-gray-800 border border-gray-600 rounded-md shadow-lg min-w-48 z-50">
+                        <div className="px-4 py-3 border-b border-gray-600">
+                          <div className="text-blue-300 text-sm font-medium mb-2 flex items-center gap-2">
+                            <Globe className="h-4 w-4" />
+                            {t('navigation.language')}
+                          </div>
+                          <LanguageSwitcher />
+                        </div>
                         <button
                           onClick={handlePasswordChange}
                           className="w-full text-left px-4 py-3 text-blue-300 hover:bg-gray-700 hover:text-blue-200 transition-colors border-b border-gray-600 flex items-center gap-2"
                         >
                           <Lock className="h-4 w-4" />
-                          Passwort ändern
+                          {t('auth.changePassword')}
                         </button>
                         <button
                           onClick={handleLogout}
                           className="w-full text-left px-4 py-3 text-blue-300 hover:bg-gray-700 hover:text-blue-200 transition-colors flex items-center gap-2"
                         >
                           <LogOut className="h-4 w-4" />
-                          Logout
+                          {t('auth.logout')}
                         </button>
                       </div>
                     )}
@@ -124,7 +134,8 @@ export default function Navigation() {
             </div>
 
             {/* Mobile Navigation */}
-            <div className="md:hidden">
+            <div className="md:hidden flex items-center gap-2">
+              <LanguageSwitcher />
               <details className="relative">
                 <summary className="text-white cursor-pointer p-2 hover:bg-gray-700 rounded-md transition-colors">
                   ☰ Menu
@@ -159,7 +170,7 @@ export default function Navigation() {
                           className="w-full text-white border-gray-600 hover:bg-gray-700 flex items-center gap-2 justify-start"
                         >
                           <Lock className="h-4 w-4" />
-                          Passwort ändern
+                          {t('auth.changePassword')}
                         </Button>
                         <Button
                           onClick={handleLogout}
@@ -168,7 +179,7 @@ export default function Navigation() {
                           className="w-full text-white border-gray-600 hover:bg-gray-700 flex items-center gap-2 justify-start"
                         >
                           <LogOut className="h-4 w-4" />
-                          Logout
+                          {t('auth.logout')}
                         </Button>
                       </div>
                     </div>
