@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { api, ApiError, NetworkError } from '@/lib/api-client';
 
 interface SapCloudSdkResponse {
   data: any;
@@ -34,11 +35,8 @@ export default function SapCloudSdkViewer({ onBack }: SapCloudSdkViewerProps) {
 
   const checkSdkHealth = async () => {
     try {
-      const response = await fetch('http://localhost:3002/sapodata/cloud-sdk/health');
-      if (response.ok) {
-        const health = await response.json();
-        setSdkHealth(health);
-      }
+      const healthResponse = await api.sapOData.cloudSdk.health();
+      setSdkHealth(healthResponse.data);
     } catch (error) {
       console.error('Error checking SAP Cloud SDK health:', error);
     }
@@ -86,24 +84,16 @@ export default function SapCloudSdkViewer({ onBack }: SapCloudSdkViewerProps) {
         data
       };
 
-      const response = await fetch('http://localhost:3002/sapodata/cloud-sdk/execute', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestPayload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-      }
-
-      const result: SapCloudSdkResponse = await response.json();
-      setResponse(result);
+      const apiResponse = await api.sapOData.cloudSdk.execute(requestPayload);
+      setResponse(apiResponse.data);
     } catch (error) {
       console.error('Error executing SAP Cloud SDK request:', error);
-      setError(error instanceof Error ? error.message : 'Unknown error occurred');
+      const errorMessage = error instanceof ApiError 
+        ? `API Error: ${error.message}` 
+        : error instanceof NetworkError 
+        ? `Network Error: ${error.message}`
+        : error instanceof Error ? error.message : 'Unknown error occurred';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -125,24 +115,16 @@ export default function SapCloudSdkViewer({ onBack }: SapCloudSdkViewerProps) {
         method: 'GET'
       };
 
-      const response = await fetch('http://localhost:3002/sapodata/cloud-sdk/execute', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestPayload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-      }
-
-      const result: SapCloudSdkResponse = await response.json();
-      setResponse(result);
+      const apiResponse = await api.sapOData.cloudSdk.execute(requestPayload);
+      setResponse(apiResponse.data);
     } catch (error) {
       console.error('Error executing Business Partners example:', error);
-      setError(error instanceof Error ? error.message : 'Unknown error occurred');
+      const errorMessage = error instanceof ApiError 
+        ? `API Error: ${error.message}` 
+        : error instanceof NetworkError 
+        ? `Network Error: ${error.message}`
+        : error instanceof Error ? error.message : 'Unknown error occurred';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -164,24 +146,16 @@ export default function SapCloudSdkViewer({ onBack }: SapCloudSdkViewerProps) {
         method: 'GET'
       };
 
-      const response = await fetch('http://localhost:3002/sapodata/cloud-sdk/execute', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestPayload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-      }
-
-      const result: SapCloudSdkResponse = await response.json();
-      setResponse(result);
+      const apiResponse = await api.sapOData.cloudSdk.execute(requestPayload);
+      setResponse(apiResponse.data);
     } catch (error) {
       console.error('Error executing Metadata example:', error);
-      setError(error instanceof Error ? error.message : 'Unknown error occurred');
+      const errorMessage = error instanceof ApiError 
+        ? `API Error: ${error.message}` 
+        : error instanceof NetworkError 
+        ? `Network Error: ${error.message}`
+        : error instanceof Error ? error.message : 'Unknown error occurred';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

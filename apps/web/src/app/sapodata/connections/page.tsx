@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { api, ApiError, NetworkError } from '@/lib/api-client';
 
 interface Connection {
   id: string;
@@ -103,19 +104,19 @@ export default function ConnectionsPage() {
   const loadConnections = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:3002/sapodata/connections');
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      setConnections(data);
+      const response = await api.sapOData.connections.list();
+      setConnections(response.data);
     } catch (error) {
       console.error('Error loading connections:', error);
+      const errorMessage = error instanceof ApiError 
+        ? `API Error: ${error.message}` 
+        : error instanceof NetworkError 
+        ? `Network Error: ${error.message}`
+        : 'Failed to load connections';
+      
       toast({
         title: 'Error',
-        description: 'Failed to load connections',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -127,20 +128,8 @@ export default function ConnectionsPage() {
     try {
       setLoading(true);
       
-      const response = await fetch('http://localhost:3002/sapodata/connections', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-      }
-
-      const newConnection = await response.json();
+      const response = await api.sapOData.connections.create(formData);
+      const newConnection = response.data;
       setConnections(prev => [newConnection, ...prev]);
       setShowCreateDialog(false);
       
@@ -166,9 +155,15 @@ export default function ConnectionsPage() {
       });
     } catch (error) {
       console.error('Error creating connection:', error);
+      const errorMessage = error instanceof ApiError 
+        ? `API Error: ${error.message}` 
+        : error instanceof NetworkError 
+        ? `Network Error: ${error.message}`
+        : 'Failed to create connection';
+      
       toast({
         title: 'Error',
-        description: (error as Error).message || 'Failed to create connection',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -180,15 +175,8 @@ export default function ConnectionsPage() {
     try {
       setLoading(true);
       
-      const response = await fetch(`http://localhost:3002/sapodata/connections/${connectionId}/test`, {
-        method: 'POST',
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
+      const response = await api.sapOData.connections.test(connectionId, {});
+      const result = response.data;
       
       toast({
         title: result.success ? 'Success' : 'Error',
@@ -197,9 +185,15 @@ export default function ConnectionsPage() {
       });
     } catch (error) {
       console.error('Error testing connection:', error);
+      const errorMessage = error instanceof ApiError 
+        ? `API Error: ${error.message}` 
+        : error instanceof NetworkError 
+        ? `Network Error: ${error.message}`
+        : 'Failed to test connection';
+      
       toast({
         title: 'Error',
-        description: 'Failed to test connection',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -225,20 +219,8 @@ export default function ConnectionsPage() {
     try {
       setLoading(true);
       
-      const response = await fetch(`http://localhost:3002/sapodata/connections/${editingConnection.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-      }
-
-      const updatedConnection = await response.json();
+      const response = await api.sapOData.connections.update(editingConnection.id, formData);
+      const updatedConnection = response.data;
       setConnections(prev => prev.map(conn => 
         conn.id === editingConnection.id ? updatedConnection : conn
       ));
@@ -267,9 +249,15 @@ export default function ConnectionsPage() {
       });
     } catch (error) {
       console.error('Error updating connection:', error);
+      const errorMessage = error instanceof ApiError 
+        ? `API Error: ${error.message}` 
+        : error instanceof NetworkError 
+        ? `Network Error: ${error.message}`
+        : 'Failed to update connection';
+      
       toast({
         title: 'Error',
-        description: (error as Error).message || 'Failed to update connection',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -285,14 +273,7 @@ export default function ConnectionsPage() {
     try {
       setLoading(true);
       
-      const response = await fetch(`http://localhost:3002/sapodata/connections/${connectionId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
+      await api.sapOData.connections.delete(connectionId);
       setConnections(prev => prev.filter(conn => conn.id !== connectionId));
       
       toast({
@@ -301,9 +282,15 @@ export default function ConnectionsPage() {
       });
     } catch (error) {
       console.error('Error deleting connection:', error);
+      const errorMessage = error instanceof ApiError 
+        ? `API Error: ${error.message}` 
+        : error instanceof NetworkError 
+        ? `Network Error: ${error.message}`
+        : 'Failed to delete connection';
+      
       toast({
         title: 'Error',
-        description: 'Failed to delete connection',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {

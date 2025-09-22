@@ -111,46 +111,51 @@ export default function ChatPage() {
 
   const fetchMcpServers = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/chat/mcp/servers`);
-      if (response.ok) {
-        const data = await response.json();
-        setMcpServers(data);
-      }
+      const response = await api.chat.mcp.servers();
+      setMcpServers(response.data);
     } catch (error) {
       console.error('Error fetching MCP servers:', error);
+      const errorMessage = error instanceof ApiError 
+        ? `API Error: ${error.message}` 
+        : error instanceof NetworkError 
+        ? `Network Error: ${error.message}`
+        : 'Failed to fetch MCP servers';
+      
+      toast({
+        title: 'Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
     }
   };
 
   const reloadMcpConfiguration = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/chat/mcp/reload`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          await fetchMcpServers();
-          toast({
-            title: 'Success',
-            description: 'MCP configuration reloaded successfully',
-          });
-        } else {
-          toast({
-            title: 'Error',
-            description: result.message || 'Failed to reload MCP configuration',
-            variant: 'destructive',
-          });
-        }
+      const response = await api.chat.mcp.reload();
+      if (response.data.success) {
+        await fetchMcpServers();
+        toast({
+          title: 'Success',
+          description: 'MCP configuration reloaded successfully',
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: response.data.message || 'Failed to reload MCP configuration',
+          variant: 'destructive',
+        });
       }
     } catch (error) {
       console.error('Error reloading MCP configuration:', error);
+      const errorMessage = error instanceof ApiError 
+        ? `API Error: ${error.message}` 
+        : error instanceof NetworkError 
+        ? `Network Error: ${error.message}`
+        : 'Failed to reload MCP configuration';
+      
       toast({
         title: 'Error',
-        description: 'Failed to reload MCP configuration',
+        description: errorMessage,
         variant: 'destructive',
       });
     }
@@ -158,51 +163,65 @@ export default function ChatPage() {
 
   const fetchAiModels = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/chat/models/all`);
-      if (response.ok) {
-        const data = await response.json();
-        setAiModels(data);
-      }
+      const response = await api.chat.models.all();
+      setAiModels(response.data);
     } catch (error) {
       console.error('Error fetching AI models:', error);
+      const errorMessage = error instanceof ApiError 
+        ? `API Error: ${error.message}` 
+        : error instanceof NetworkError 
+        ? `Network Error: ${error.message}`
+        : 'Failed to fetch AI models';
+      
+      toast({
+        title: 'Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
     }
   };
 
   const fetchDefaultModel = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/chat/models/default`);
-      if (response.ok) {
-        const data = await response.json();
-        setDefaultModel(data);
-        setSelectedModel(data.id);
-      }
+      const response = await api.chat.models.default();
+      const defaultModelData = response.data;
+      setDefaultModel(defaultModelData);
+      setSelectedModel(defaultModelData.id);
     } catch (error) {
       console.error('Error fetching default model:', error);
+      const errorMessage = error instanceof ApiError 
+        ? `API Error: ${error.message}` 
+        : error instanceof NetworkError 
+        ? `Network Error: ${error.message}`
+        : 'Failed to fetch default model';
+      
+      toast({
+        title: 'Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
     }
   };
 
   const setDefaultModelApi = async (modelId: string) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/chat/models/default`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ modelId }),
+      const response = await api.chat.models.setDefault({ modelId });
+      await fetchDefaultModel();
+      toast({
+        title: 'Success',
+        description: 'Default model updated successfully',
       });
-
-      if (response.ok) {
-        await fetchDefaultModel();
-        toast({
-          title: 'Success',
-          description: 'Default model updated successfully',
-        });
-      }
     } catch (error) {
       console.error('Error setting default model:', error);
+      const errorMessage = error instanceof ApiError 
+        ? `API Error: ${error.message}` 
+        : error instanceof NetworkError 
+        ? `Network Error: ${error.message}`
+        : 'Failed to update default model';
+      
       toast({
         title: 'Error',
-        description: 'Failed to update default model',
+        description: errorMessage,
         variant: 'destructive',
       });
     }
@@ -220,14 +239,12 @@ export default function ChatPage() {
       let mcpServerNames: string[] = [];
       if (useMcp) {
         try {
-          const mcpResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/chat/mcp/servers`);
-          if (mcpResponse.ok) {
-            const mcpServers = await mcpResponse.json();
-            // Only include servers that are not disabled
-            mcpServerNames = mcpServers
-              .filter((server: any) => !server.disabled)
-              .map((server: any) => server.name);
-          }
+          const mcpResponse = await api.chat.mcp.servers();
+          const mcpServers = mcpResponse.data;
+          // Only include servers that are not disabled
+          mcpServerNames = mcpServers
+            .filter((server: any) => !server.disabled)
+            .map((server: any) => server.name);
         } catch (error) {
           console.error('Error fetching MCP servers:', error);
           // No fallback - use empty array if MCP servers can't be fetched
@@ -235,24 +252,16 @@ export default function ChatPage() {
         }
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/chat/conversations`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title: 'New Conversation',
-          model: modelToUse,
-          mcpServers: mcpServerNames,
-        }),
+      const response = await api.chat.conversations.create({
+        title: 'New Conversation',
+        model: modelToUse,
+        mcpServers: mcpServerNames,
       });
 
-      if (response.ok) {
-        const newConversation = await response.json();
-        setConversations([newConversation, ...conversations]);
-        setCurrentConversation(newConversation);
-        setActiveTab('chat');
-      }
+      const newConversation = response.data;
+      setConversations([newConversation, ...conversations]);
+      setCurrentConversation(newConversation);
+      setActiveTab('chat');
     } catch (error) {
       console.error('Error creating conversation:', error);
       toast({
@@ -337,25 +346,26 @@ export default function ChatPage() {
 
   const deleteConversation = async (conversationId: string) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/chat/conversations/${conversationId}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        setConversations(conversations.filter(conv => conv.id !== conversationId));
-        if (currentConversation?.id === conversationId) {
-          setCurrentConversation(null);
-        }
-        toast({
-          title: 'Success',
-          description: 'Conversation deleted',
-        });
+      await api.chat.conversations.delete(conversationId);
+      setConversations(conversations.filter(conv => conv.id !== conversationId));
+      if (currentConversation?.id === conversationId) {
+        setCurrentConversation(null);
       }
+      toast({
+        title: 'Success',
+        description: 'Conversation deleted',
+      });
     } catch (error) {
       console.error('Error deleting conversation:', error);
+      const errorMessage = error instanceof ApiError 
+        ? `API Error: ${error.message}` 
+        : error instanceof NetworkError 
+        ? `Network Error: ${error.message}`
+        : 'Failed to delete conversation';
+      
       toast({
         title: 'Error',
-        description: 'Failed to delete conversation',
+        description: errorMessage,
         variant: 'destructive',
       });
     }
@@ -378,36 +388,33 @@ export default function ChatPage() {
     }
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/chat/conversations/${conversationId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ title: editingTitle.trim() }),
-      });
-
-      if (response.ok) {
-        const updatedConversation = await response.json();
-        setConversations(conversations.map(conv => 
-          conv.id === conversationId ? { ...conv, title: updatedConversation.title } : conv
-        ));
-        
-        if (currentConversation?.id === conversationId) {
-          setCurrentConversation({ ...currentConversation, title: updatedConversation.title });
-        }
-        
-        toast({
-          title: 'Success',
-          description: 'Conversation renamed',
-        });
-        
-        cancelRenaming();
+      const response = await api.chat.conversations.update(conversationId, { title: editingTitle.trim() });
+      const updatedConversation = response.data;
+      setConversations(conversations.map(conv => 
+        conv.id === conversationId ? { ...conv, title: updatedConversation.title } : conv
+      ));
+      
+      if (currentConversation?.id === conversationId) {
+        setCurrentConversation({ ...currentConversation, title: updatedConversation.title });
       }
+      
+      toast({
+        title: 'Success',
+        description: 'Conversation renamed',
+      });
+      
+      cancelRenaming();
     } catch (error) {
       console.error('Error renaming conversation:', error);
+      const errorMessage = error instanceof ApiError 
+        ? `API Error: ${error.message}` 
+        : error instanceof NetworkError 
+        ? `Network Error: ${error.message}`
+        : 'Failed to rename conversation';
+      
       toast({
         title: 'Error',
-        description: 'Failed to rename conversation',
+        description: errorMessage,
         variant: 'destructive',
       });
     }

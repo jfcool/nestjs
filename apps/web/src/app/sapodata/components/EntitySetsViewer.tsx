@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { api, ApiError, NetworkError } from '@/lib/api-client';
 
 /**
  * SAP OData Entity Sets Explorer Component
@@ -93,7 +94,6 @@ export default function EntitySetsViewer({ serviceName, connectionId, onBack }: 
   const [showDataModal, setShowDataModal] = useState(false);
   const [dataLoading, setDataLoading] = useState(false);
   const [queryOptions, setQueryOptions] = useState<QueryOptions>({
-    top: 50,
     skip: 0
   });
 
@@ -123,22 +123,11 @@ export default function EntitySetsViewer({ serviceName, connectionId, onBack }: 
       setError(null);
 
       // First get the parsed metadata to extract entity sets
-      const response = await fetch(`http://localhost:3002/sapodata/connection/${connectionId}/service/${serviceName}/metadata/parsed`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          cacheConnectionId: undefined // Optional cache connection ID
-        }),
+      const response = await api.sapOData.services.metadataParsed(connectionId, serviceName, {
+        cacheConnectionId: undefined // Optional cache connection ID
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
-      }
-
-      const result: EntitySetsMetadataResponse = await response.json();
+      const result: EntitySetsMetadataResponse = response.data;
       
       // Store the complete response for cache indicators
       setEntitySetsResponse(result);
@@ -151,7 +140,12 @@ export default function EntitySetsViewer({ serviceName, connectionId, onBack }: 
       }
     } catch (error) {
       console.error('Error fetching entity sets:', error);
-      setError(error instanceof Error ? error.message : 'Failed to fetch entity sets');
+      const errorMessage = error instanceof ApiError 
+        ? `API Error: ${error.message}` 
+        : error instanceof NetworkError 
+        ? `Network Error: ${error.message}`
+        : error instanceof Error ? error.message : 'Failed to fetch entity sets';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -163,28 +157,22 @@ export default function EntitySetsViewer({ serviceName, connectionId, onBack }: 
       setError(null);
       setSelectedEntitySet(entitySet);
 
-      const response = await fetch(`http://localhost:3002/sapodata/connection/${connectionId}/service/${serviceName}/entityset/${entitySet.name}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          options: queryOptions,
-          cacheConnectionId: undefined // Optional cache connection ID
-        }),
+      const apiResponse = await api.sapOData.services.entitySetData(connectionId, serviceName, entitySet.name, {
+        options: queryOptions,
+        cacheConnectionId: undefined // Optional cache connection ID
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
-      }
-
-      const result: EntitySetData = await response.json();
+      const result: EntitySetData = apiResponse.data;
       setEntitySetData(result);
       setShowDataModal(true);
     } catch (error) {
       console.error('Error fetching entity set data:', error);
-      setError(error instanceof Error ? error.message : 'Failed to fetch entity set data');
+      const errorMessage = error instanceof ApiError 
+        ? `API Error: ${error.message}` 
+        : error instanceof NetworkError 
+        ? `Network Error: ${error.message}`
+        : error instanceof Error ? error.message : 'Failed to fetch entity set data';
+      setError(errorMessage);
     } finally {
       setDataLoading(false);
     }

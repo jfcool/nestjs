@@ -45,12 +45,89 @@ class ApiClient {
   private defaultTimeout: number;
   private defaultRetries: number;
   private retryDelay: number;
+  private isRefreshing: boolean = false;
+  private refreshPromise: Promise<boolean> | null = null;
 
   constructor() {
     this.baseUrl = API_CONFIG.BASE_URL;
     this.defaultTimeout = API_CONFIG.TIMEOUT;
     this.defaultRetries = API_CONFIG.RETRY_ATTEMPTS;
     this.retryDelay = API_CONFIG.RETRY_DELAY;
+  }
+
+  /**
+   * Check if token is expired by decoding JWT
+   */
+  private isTokenExpired(token: string): boolean {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const currentTime = Math.floor(Date.now() / 1000);
+      return payload.exp < currentTime;
+    } catch {
+      return true; // If we can't decode, assume expired
+    }
+  }
+
+  /**
+   * Attempt to refresh the session by re-authenticating
+   */
+  private async refreshSession(): Promise<boolean> {
+    if (this.isRefreshing) {
+      return this.refreshPromise || Promise.resolve(false);
+    }
+
+    this.isRefreshing = true;
+    this.refreshPromise = this.performRefresh();
+    
+    try {
+      const result = await this.refreshPromise;
+      return result;
+    } finally {
+      this.isRefreshing = false;
+      this.refreshPromise = null;
+    }
+  }
+
+  /**
+   * Perform the actual refresh logic
+   */
+  private async performRefresh(): Promise<boolean> {
+    try {
+      // Check if we have user credentials to re-authenticate
+      const userData = sessionStorage.getItem('user');
+      if (!userData) {
+        this.clearSession();
+        return false;
+      }
+
+      // For now, we'll clear the session and redirect to login
+      // In a more advanced implementation, you could implement refresh tokens
+      console.log('[API] Session expired, redirecting to login...');
+      this.clearSession();
+      
+      // Redirect to login page
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('[API] Session refresh failed:', error);
+      this.clearSession();
+      return false;
+    }
+  }
+
+  /**
+   * Clear session data
+   */
+  private clearSession(): void {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    }
   }
 
   /**
@@ -74,13 +151,23 @@ class ApiClient {
     // Set up timeout
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+    // Get token from sessionStorage and add to headers
+    const token = typeof window !== 'undefined' ? sessionStorage.getItem('token') : null;
+    
+    // Build headers object
+    const requestHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...headers,
+    };
+    
+    if (token) {
+      requestHeaders['Authorization'] = `Bearer ${token}`;
+    }
+
     // Prepare request options
     const fetchOptions: RequestInit = {
       method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...headers,
-      },
+      headers: requestHeaders,
       signal: controller.signal,
     };
 
@@ -101,6 +188,22 @@ class ApiClient {
 
         // Handle HTTP errors
         if (!response.ok) {
+          // Handle 401 Unauthorized - attempt session refresh
+          if (response.status === 401 && token && !endpoint.includes('/auth/login')) {
+            console.log('[API] 401 Unauthorized - checking token expiration...');
+            
+            if (this.isTokenExpired(token)) {
+              console.log('[API] Token expired, attempting session refresh...');
+              const refreshed = await this.refreshSession();
+              
+              if (refreshed) {
+                // Retry the request with new token
+                console.log('[API] Session refreshed, retrying request...');
+                continue; // This will retry the current attempt
+              }
+            }
+          }
+          
           const errorText = await response.text().catch(() => 'Unknown error');
           throw new ApiError(
             `HTTP ${response.status}: ${errorText}`,
@@ -152,7 +255,7 @@ class ApiClient {
     }
 
     // All retries failed
-    console.error(`[API] ❌ ${method} ${endpoint} - All retries failed`);
+    console.warn(`[API] ❌ ${method} ${endpoint} - All retries failed`);
     
     if (lastError instanceof ApiError || lastError instanceof NetworkError) {
       throw lastError;
@@ -231,46 +334,75 @@ export const api = {
   // Chat
   chat: {
     conversations: {
-      list: () => apiClient.get(API_ENDPOINTS.CHAT.CONVERSATIONS),
-      create: (conversationData: any) => apiClient.post(API_ENDPOINTS.CHAT.CONVERSATIONS, conversationData),
-      update: (id: string, conversationData: any) => apiClient.put(API_ENDPOINTS.CHAT.CONVERSATION_BY_ID(id), conversationData),
-      delete: (id: string) => apiClient.delete(API_ENDPOINTS.CHAT.CONVERSATION_BY_ID(id)),
+      list: () => apiClient.get('/chat/conversations'),
+      create: (conversationData: any) => apiClient.post('/chat/conversations', conversationData),
+      update: (id: string, conversationData: any) => apiClient.put(`/chat/conversations/${id}`, conversationData),
+      delete: (id: string) => apiClient.delete(`/chat/conversations/${id}`),
     },
     messages: {
-      send: (messageData: any) => apiClient.post(API_ENDPOINTS.CHAT.MESSAGES, messageData),
+      send: (messageData: any) => apiClient.post('/chat/messages', messageData),
     },
     mcp: {
-      servers: () => apiClient.get(API_ENDPOINTS.CHAT.MCP_SERVERS),
-      reload: () => apiClient.post(API_ENDPOINTS.CHAT.MCP_RELOAD),
+      servers: () => apiClient.get('/chat/mcp/servers'),
+      reload: () => apiClient.post('/chat/mcp/reload'),
     },
     models: {
-      all: () => apiClient.get(API_ENDPOINTS.CHAT.MODELS_ALL),
-      default: () => apiClient.get(API_ENDPOINTS.CHAT.MODELS_DEFAULT),
-      setDefault: (modelData: any) => apiClient.post(API_ENDPOINTS.CHAT.MODELS_DEFAULT, modelData),
+      all: () => apiClient.get('/chat/models/all'),
+      default: () => apiClient.get('/chat/models/default'),
+      setDefault: (modelData: any) => apiClient.post('/chat/models/default', modelData),
     },
+  },
+
+  // Permissions
+  permissions: {
+    available: () => apiClient.get(API_ENDPOINTS.PERMISSIONS.AVAILABLE),
+    roles: {
+      list: () => apiClient.get(API_ENDPOINTS.PERMISSIONS.ROLES),
+      create: (roleData: any) => apiClient.post(API_ENDPOINTS.PERMISSIONS.ROLES, roleData),
+      update: (id: string, roleData: any) => apiClient.put(API_ENDPOINTS.PERMISSIONS.ROLE_BY_ID(id), roleData),
+      delete: (id: string) => apiClient.delete(API_ENDPOINTS.PERMISSIONS.ROLE_BY_ID(id)),
+    },
+    users: {
+      list: () => apiClient.get(API_ENDPOINTS.PERMISSIONS.USERS),
+      assignRoles: (userId: string, roleData: any) => apiClient.post(API_ENDPOINTS.PERMISSIONS.USER_ROLES(userId), roleData),
+      removeRole: (userId: string, roleId: string) => apiClient.delete(API_ENDPOINTS.PERMISSIONS.USER_ROLE_DELETE(userId, roleId)),
+    },
+  },
+
+  // Auth
+  auth: {
+    login: (credentials: any) => apiClient.post('/auth/login', credentials),
+    changePassword: (passwordData: any) => apiClient.post('/auth/change-password', passwordData),
+    me: () => apiClient.get('/auth/me'),
+  },
+
+  // Dashboard
+  dashboard: {
+    stats: () => apiClient.get('/dashboard/stats'),
   },
 
   // SAP OData
   sapOData: {
     connections: {
-      list: () => apiClient.get(API_ENDPOINTS.SAP_ODATA.CONNECTIONS),
-      create: (connectionData: any) => apiClient.post(API_ENDPOINTS.SAP_ODATA.CONNECTIONS, connectionData),
-      update: (id: string, connectionData: any) => apiClient.put(API_ENDPOINTS.SAP_ODATA.CONNECTION_BY_ID(id), connectionData),
-      delete: (id: string) => apiClient.delete(API_ENDPOINTS.SAP_ODATA.CONNECTION_BY_ID(id)),
-      test: (id: string, testData: any) => apiClient.post(API_ENDPOINTS.SAP_ODATA.CONNECTION_TEST(id), testData),
-      catalog: (id: string, catalogData: any) => apiClient.post(API_ENDPOINTS.SAP_ODATA.CONNECTION_CATALOG(id), catalogData),
-      metadata: (id: string, metadataData: any) => apiClient.post(API_ENDPOINTS.SAP_ODATA.CONNECTION_METADATA(id), metadataData),
-      data: (id: string, dataRequest: any) => apiClient.post(API_ENDPOINTS.SAP_ODATA.CONNECTION_DATA(id), dataRequest),
+      list: () => apiClient.get('/sapodata/connections'),
+      create: (connectionData: any) => apiClient.post('/sapodata/connections', connectionData),
+      update: (id: string, connectionData: any) => apiClient.put(`/sapodata/connections/${id}`, connectionData),
+      delete: (id: string) => apiClient.delete(`/sapodata/connections/${id}`),
+      test: (id: string, testData: any) => apiClient.post(`/sapodata/connections/${id}/test`, testData),
+      catalog: (id: string, catalogData: any) => apiClient.post(`/sapodata/connection/${id}/catalog`, catalogData),
+      metadata: (id: string, metadataData: any) => apiClient.post(`/sapodata/connection/${id}/metadata`, metadataData),
+      data: (id: string, dataRequest: any) => apiClient.post(`/sapodata/connection/${id}/data`, dataRequest),
     },
     services: {
       metadataParsed: (connectionId: string, serviceName: string, requestData: any) => 
-        apiClient.post(API_ENDPOINTS.SAP_ODATA.SERVICE_METADATA_PARSED(connectionId, serviceName), requestData),
+        apiClient.post(`/sapodata/connection/${connectionId}/service/${serviceName}/metadata/parsed`, requestData),
       entitySetData: (connectionId: string, serviceName: string, entitySetName: string, requestData: any) => 
-        apiClient.post(API_ENDPOINTS.SAP_ODATA.ENTITY_SET_DATA(connectionId, serviceName, entitySetName), requestData),
+        apiClient.post(`/sapodata/connection/${connectionId}/service/${serviceName}/entityset/${entitySetName}`, requestData),
     },
     cloudSdk: {
-      health: () => apiClient.get(API_ENDPOINTS.SAP_ODATA.CLOUD_SDK_HEALTH),
-      execute: (requestData: any) => apiClient.post(API_ENDPOINTS.SAP_ODATA.CLOUD_SDK_EXECUTE, requestData),
+      health: () => apiClient.get('/sapodata/cloud-sdk/health'),
+      execute: (requestData: any) => apiClient.post('/sapodata/cloud-sdk/execute', requestData),
+      businessPartners: (requestData: any) => apiClient.post('/sapodata/cloud-sdk/business-partners', requestData),
     },
   },
 };

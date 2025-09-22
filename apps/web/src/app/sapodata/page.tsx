@@ -40,6 +40,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import EntitySetsViewer from './components/EntitySetsViewer';
 import SapCloudSdkViewer from './components/SapCloudSdkViewer';
+import { api, ApiError, NetworkError } from '@/lib/api-client';
 
 interface ODataService {
   ServiceUrl: string | URL;
@@ -158,19 +159,23 @@ export default function SapODataExplorer() {
 
   const fetchStoredConnections = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/sapodata/connections`);
-      if (response.ok) {
-        const connections = await response.json();
-        setStoredConnections(connections);
-        
-        // Auto-select the first active connection if none is selected
-        if (!selectedConnectionId && connections.length > 0) {
-          const activeConnection = connections.find((conn: StoredConnection) => conn.isActive) || connections[0];
-          setSelectedConnectionId(activeConnection.id);
-        }
+      const response = await api.sapOData.connections.list();
+      const connections = response.data;
+      setStoredConnections(connections);
+      
+      // Auto-select the first active connection if none is selected
+      if (!selectedConnectionId && connections.length > 0) {
+        const activeConnection = connections.find((conn: StoredConnection) => conn.isActive) || connections[0];
+        setSelectedConnectionId(activeConnection.id);
       }
     } catch (error) {
       console.error('Error fetching stored connections:', error);
+      const errorMessage = error instanceof ApiError 
+        ? `API Error: ${error.message}` 
+        : error instanceof NetworkError 
+        ? `Network Error: ${error.message}`
+        : 'Failed to fetch stored connections';
+      setError(errorMessage);
     }
   };
 
@@ -184,19 +189,8 @@ export default function SapODataExplorer() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/sapodata/connection/${selectedConnection.id}/catalog`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({}),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result: SapODataResponse = await response.json();
+      const response = await api.sapOData.connections.catalog(selectedConnection.id, {});
+      const result: SapODataResponse = response.data;
       
       // Store the complete response for cache indicators
       setServicesResponse(result);
@@ -209,7 +203,12 @@ export default function SapODataExplorer() {
       }
     } catch (error) {
       console.error('Error fetching SAP OData services:', error);
-      setError(error instanceof Error ? error.message : 'Unknown error occurred');
+      const errorMessage = error instanceof ApiError 
+        ? `API Error: ${error.message}` 
+        : error instanceof NetworkError 
+        ? `Network Error: ${error.message}`
+        : error instanceof Error ? error.message : 'Unknown error occurred';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -227,28 +226,23 @@ export default function SapODataExplorer() {
 
       const metadataPath = new URL(service.MetadataUrl).pathname;
       
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/sapodata/connection/${selectedConnection.id}/metadata`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          servicePath: metadataPath,
-        }),
+      const response = await api.sapOData.connections.metadata(selectedConnection.id, {
+        servicePath: metadataPath,
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result: SapODataResponse = await response.json();
+      const result: SapODataResponse = response.data;
       setMetadata(result.content);
       setMetadataResponse(result);
       setSelectedService(service);
       setActiveTab('metadata');
     } catch (error) {
       console.error('Error fetching metadata:', error);
-      setError(error instanceof Error ? error.message : 'Failed to fetch metadata');
+      const errorMessage = error instanceof ApiError 
+        ? `API Error: ${error.message}` 
+        : error instanceof NetworkError 
+        ? `Network Error: ${error.message}`
+        : error instanceof Error ? error.message : 'Failed to fetch metadata';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -266,28 +260,23 @@ export default function SapODataExplorer() {
 
       const dataPath = `${new URL(service.ServiceUrl).pathname}/`;
       
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/sapodata/connection/${selectedConnection.id}/data`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          servicePath: dataPath,
-        }),
+      const response = await api.sapOData.connections.data(selectedConnection.id, {
+        servicePath: dataPath,
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result: SapODataResponse = await response.json();
+      const result: SapODataResponse = response.data;
       setServiceData(result.parsedContent);
       setServiceDataResponse(result);
       setSelectedService(service);
       setActiveTab('data');
     } catch (error) {
       console.error('Error fetching service data:', error);
-      setError(error instanceof Error ? error.message : 'Failed to fetch service data');
+      const errorMessage = error instanceof ApiError 
+        ? `API Error: ${error.message}` 
+        : error instanceof NetworkError 
+        ? `Network Error: ${error.message}`
+        : error instanceof Error ? error.message : 'Failed to fetch service data';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -521,8 +510,10 @@ export default function SapODataExplorer() {
               style={{
                 padding: '12px 16px',
                 backgroundColor: activeTab === 'services' ? '#eff6ff' : 'transparent',
+                borderTop: 'none',
+                borderLeft: 'none',
+                borderRight: 'none',
                 borderBottom: activeTab === 'services' ? '2px solid #3b82f6' : 'none',
-                border: 'none',
                 cursor: 'pointer',
                 fontSize: '14px',
                 fontWeight: activeTab === 'services' ? '600' : '400',
@@ -537,8 +528,10 @@ export default function SapODataExplorer() {
               style={{
                 padding: '12px 16px',
                 backgroundColor: activeTab === 'metadata' ? '#eff6ff' : 'transparent',
+                borderTop: 'none',
+                borderLeft: 'none',
+                borderRight: 'none',
                 borderBottom: activeTab === 'metadata' ? '2px solid #3b82f6' : 'none',
-                border: 'none',
                 cursor: selectedService ? 'pointer' : 'not-allowed',
                 fontSize: '14px',
                 fontWeight: activeTab === 'metadata' ? '600' : '400',
@@ -553,8 +546,10 @@ export default function SapODataExplorer() {
               style={{
                 padding: '12px 16px',
                 backgroundColor: activeTab === 'data' ? '#eff6ff' : 'transparent',
+                borderTop: 'none',
+                borderLeft: 'none',
+                borderRight: 'none',
                 borderBottom: activeTab === 'data' ? '2px solid #3b82f6' : 'none',
-                border: 'none',
                 cursor: selectedService ? 'pointer' : 'not-allowed',
                 fontSize: '14px',
                 fontWeight: activeTab === 'data' ? '600' : '400',
@@ -569,8 +564,10 @@ export default function SapODataExplorer() {
               style={{
                 padding: '12px 16px',
                 backgroundColor: activeTab === 'entitysets' ? '#eff6ff' : 'transparent',
+                borderTop: 'none',
+                borderLeft: 'none',
+                borderRight: 'none',
                 borderBottom: activeTab === 'entitysets' ? '2px solid #3b82f6' : 'none',
-                border: 'none',
                 cursor: selectedService ? 'pointer' : 'not-allowed',
                 fontSize: '14px',
                 fontWeight: activeTab === 'entitysets' ? '600' : '400',
@@ -584,8 +581,10 @@ export default function SapODataExplorer() {
               style={{
                 padding: '12px 16px',
                 backgroundColor: activeTab === 'cloudsdk' ? '#eff6ff' : 'transparent',
+                borderTop: 'none',
+                borderLeft: 'none',
+                borderRight: 'none',
                 borderBottom: activeTab === 'cloudsdk' ? '2px solid #3b82f6' : 'none',
-                border: 'none',
                 cursor: 'pointer',
                 fontSize: '14px',
                 fontWeight: activeTab === 'cloudsdk' ? '600' : '400',

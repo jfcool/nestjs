@@ -30,6 +30,24 @@ export const API_CONFIG = {
 
 // API Endpoints organized by module
 export const API_ENDPOINTS = {
+  // Auth API
+  AUTH: {
+    LOGIN: '/auth/login',
+    REGISTER: '/auth/register',
+    PROFILE: '/auth/profile',
+    ME: '/auth/me',
+  },
+  
+  // Permissions API
+  PERMISSIONS: {
+    AVAILABLE: '/permissions/available',
+    ROLES: '/permissions/roles',
+    ROLE_BY_ID: (id: string) => `/permissions/roles/${id}`,
+    USERS: '/permissions/users',
+    USER_ROLES: (userId: string) => `/permissions/users/${userId}/roles`,
+    USER_ROLE_DELETE: (userId: string, roleId: string) => `/permissions/users/${userId}/roles/${roleId}`,
+  },
+  
   // Users API
   USERS: {
     LIST: '/users',
