@@ -262,11 +262,19 @@ When creating new features, ALWAYS verify:
 - [ ] Uses Radix UI components
 - [ ] Follows responsive design patterns
 
+### Navigation Checklist
+- [ ] **MANDATORY**: Each new module MUST have a navigation entry in `Navigation.tsx`
+- [ ] Navigation entry includes proper permission check
+- [ ] Translation keys added for navigation labels
+- [ ] Icon assigned for visual identification
+- [ ] Route properly configured in the routes array
+
 ### Integration Checklist
 - [ ] Runs `pnpm gen:client` after backend changes
 - [ ] Tests API endpoints via generated hooks
 - [ ] Verifies permissions work correctly
 - [ ] Checks user operations use system modules
+- [ ] **Navigation entry visible and functional**
 
 ---
 

@@ -24,6 +24,7 @@
     "users": "Benutzer",
     "permissions": "Berechtigungen",
     "chat": "Chat",
+    "documents": "Dokumente",
     "sapOData": "SAP OData",
     "connections": "Verbindungen",
     "logout": "Abmelden",
@@ -158,6 +159,87 @@
     "maxLength": "Maximal {{max}} Zeichen erlaubt",
     "passwordMismatch": "Passwörter stimmen nicht überein",
     "invalidFormat": "Ungültiges Format"
+  },
+  "documents": {
+    "title": "Dokumentenverwaltung",
+    "description": "Verwalten und durchsuchen Sie Ihre Dokumentensammlung mit RAG (Retrieval-Augmented Generation)",
+    "ragSystem": "RAG-System",
+    "statistics": {
+      "totalDocuments": "Dokumente gesamt",
+      "totalChunks": "Chunks gesamt",
+      "averageChunkSize": "Ø Chunk-Größe",
+      "withEmbeddings": "Mit Embeddings",
+      "tokens": "Token"
+    },
+    "indexing": {
+      "title": "Dokumente indizieren",
+      "description": "Neue Dokumente oder Verzeichnisse zum Suchindex hinzufügen",
+      "pathPlaceholder": "Datei- oder Verzeichnispfad eingeben...",
+      "folderPlaceholder": "Ordner zum Indizieren auswählen...",
+      "indexButton": "Indizieren",
+      "indexing": "Indiziere...",
+      "browseFolder": "Ordner durchsuchen",
+      "selectFolder": "Ordner auswählen",
+      "dragDropHint": "Dateien hier ablegen oder klicken zum Durchsuchen",
+      "supportedFormats": "Unterstützte Formate: PDF, TXT, MD, DOCX",
+      "indexingComplete": "Indizierung abgeschlossen",
+      "indexingFailed": "Indizierung fehlgeschlagen",
+      "pathRequired": "Pfad ist erforderlich",
+      "pathNotFound": "Pfad existiert nicht"
+    },
+    "search": {
+      "title": "Dokumente durchsuchen",
+      "description": "Durchsuchen Sie indizierte Dokumente mit semantischer Suche",
+      "placeholder": "Suchanfrage eingeben...",
+      "searchButton": "Suchen",
+      "searching": "Suche...",
+      "results": "Suchergebnisse",
+      "resultsCount": "Suchergebnisse ({{count}})",
+      "noResults": "Keine Ergebnisse gefunden",
+      "searchComplete": "Suche abgeschlossen",
+      "searchFailed": "Suche fehlgeschlagen",
+      "foundResults": "{{count}} Ergebnisse gefunden",
+      "score": "Bewertung",
+      "chunk": "Chunk {{index}}"
+    },
+    "list": {
+      "title": "Indizierte Dokumente",
+      "description": "Alle Dokumente, die sich derzeit im Suchindex befinden",
+      "noDocuments": "Noch keine Dokumente indiziert",
+      "fileSize": "{{size}} KB",
+      "chunks": "{{count}} Chunks",
+      "created": "Erstellt: {{date}}",
+      "updated": "Aktualisiert: {{date}}",
+      "actions": "Aktionen",
+      "delete": "Löschen",
+      "reindex": "Neu indizieren",
+      "view": "Anzeigen"
+    },
+    "embedding": {
+      "testService": "Embedding-Service testen",
+      "testComplete": "Embedding-Service Test",
+      "connected": "✅ Verbunden ({{dimensions}} Dimensionen)",
+      "failed": "❌ Fehlgeschlagen: {{error}}",
+      "testFailed": "Test fehlgeschlagen"
+    },
+    "filters": {
+      "fileType": "Dateityp",
+      "allTypes": "Alle Typen",
+      "dateRange": "Datumsbereich",
+      "sortBy": "Sortieren nach",
+      "name": "Name",
+      "date": "Datum",
+      "size": "Größe",
+      "relevance": "Relevanz"
+    },
+    "upload": {
+      "title": "Dokumente hochladen",
+      "dropzone": "Dateien hier ablegen zum Hochladen",
+      "selectFiles": "Dateien auswählen",
+      "uploading": "Lade hoch...",
+      "uploadComplete": "Upload abgeschlossen",
+      "uploadFailed": "Upload fehlgeschlagen"
+    }
   },
   "errors": {
     "generic": "Etwas ist schief gelaufen",

@@ -82,6 +82,19 @@ export const API_ENDPOINTS = {
     CLOUD_SDK_HEALTH: '/sapodata/cloud-sdk/health',
     CLOUD_SDK_EXECUTE: '/sapodata/cloud-sdk/execute',
   },
+  
+  // Documents API
+  DOCUMENTS: {
+    LIST: '/documents',
+    STATS: '/documents/stats',
+    SEARCH: '/documents/search',
+    CONTEXT: '/documents/context',
+    INDEX: '/documents/index',
+    EMBEDDING_TEST: '/documents/embedding/test',
+    BY_ID: (id: string) => `/documents/${id}`,
+    CHUNKS: (id: string) => `/documents/${id}/chunks`,
+    SEARCH_WITHIN: (id: string) => `/documents/${id}/search`,
+  },
 } as const;
 
 export type ApiEndpoint = string;

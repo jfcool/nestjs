@@ -8,15 +8,16 @@
     "delete": "Delete",
     "edit": "Edit",
     "create": "Create",
+    "update": "Update",
     "search": "Search",
-    "refresh": "Refresh",
-    "close": "Close",
+    "filter": "Filter",
+    "sort": "Sort",
+    "actions": "Actions",
     "yes": "Yes",
     "no": "No",
-    "back": "Back",
-    "next": "Next",
-    "previous": "Previous",
-    "actions": "Actions"
+    "confirm": "Confirm",
+    "close": "Close",
+    "refresh": "Refresh"
   },
   "navigation": {
     "home": "Home",
@@ -24,6 +25,7 @@
     "users": "Users",
     "permissions": "Permissions",
     "chat": "Chat",
+    "documents": "Documents",
     "sapOData": "SAP OData",
     "connections": "Connections",
     "logout": "Logout",
@@ -158,6 +160,68 @@
     "maxLength": "Maximum {{max}} characters allowed",
     "passwordMismatch": "Passwords do not match",
     "invalidFormat": "Invalid format"
+  },
+  "documents": {
+    "title": "Document Management",
+    "description": "Manage and search through your documents using AI-powered semantic search.",
+    "indexing": {
+      "title": "Index Documents",
+      "description": "Upload and index documents for semantic search and RAG capabilities.",
+      "indexButton": "Index Documents",
+      "indexing": "Indexing...",
+      "indexingComplete": "Indexing Complete",
+      "indexingFailed": "Indexing Failed",
+      "pathRequired": "Please select files to index",
+      "indexedSuccessfully": "Successfully indexed: {{path}}"
+    },
+    "search": {
+      "title": "Search Documents",
+      "description": "Search through indexed documents using natural language queries.",
+      "placeholder": "Enter your search query...",
+      "searchButton": "Search",
+      "searching": "Searching...",
+      "searchComplete": "Search Complete",
+      "searchFailed": "Search Failed",
+      "foundResults": "Found {{count}} results",
+      "resultsCount": "{{count}} results found",
+      "score": "Score",
+      "chunk": "Chunk {{index}}"
+    },
+    "list": {
+      "title": "Indexed Documents",
+      "description": "View and manage your indexed documents.",
+      "noDocuments": "No documents indexed yet. Upload some documents to get started.",
+      "fileSize": "{{size}} KB",
+      "chunks": "{{count}} chunks",
+      "created": "Created: {{date}}",
+      "updated": "Updated: {{date}}"
+    },
+    "statistics": {
+      "totalDocuments": "Total Documents",
+      "totalChunks": "Total Chunks",
+      "averageChunkSize": "Avg Chunk Size",
+      "withEmbeddings": "With Embeddings",
+      "tokens": "tokens"
+    },
+    "filters": {
+      "allTypes": "All Types",
+      "date": "Date",
+      "name": "Name",
+      "size": "Size"
+    },
+    "embedding": {
+      "testService": "Test Embedding Service",
+      "testComplete": "Test Complete",
+      "testFailed": "Test Failed",
+      "connected": "Connected ({{dimensions}} dimensions)",
+      "failed": "Connection failed: {{error}}"
+    },
+    "upload": {
+      "selectFiles": "Select Files",
+      "browseFolder": "Browse Folder",
+      "dragDropHint": "Drag and drop files here, or click to select",
+      "supportedFormats": "Supported formats: PDF, TXT, MD, DOCX, DOC, RTF"
+    }
   },
   "errors": {
     "generic": "Something went wrong",

@@ -8,16 +8,24 @@ export async function seedAuth(dataSource: DataSource) {
   const roleRepository = dataSource.getRepository(Role);
 
   try {
-    // Create roles if they don't exist
-    const allRole = await roleRepository.findOne({ where: { name: 'all' } });
+    // Create or update roles
+    let allRole = await roleRepository.findOne({ where: { name: 'all' } });
     if (!allRole) {
       const newAllRole = roleRepository.create({
         name: 'all',
         description: 'Full access to all applications',
-        permissions: ['dashboard', 'users', 'sapodata', 'chat', 'permissions']
+        permissions: ['dashboard', 'users', 'sapodata', 'documents', 'chat', 'permissions']
       });
       await roleRepository.save(newAllRole);
       console.log('Created "all" role');
+    } else {
+      // Update existing role to include documents permission if not present
+      const currentPermissions = allRole.permissions || [];
+      if (!currentPermissions.includes('documents')) {
+        allRole.permissions = [...currentPermissions, 'documents'];
+        await roleRepository.save(allRole);
+        console.log('Updated "all" role to include documents permission');
+      }
     }
 
     const everestRole = await roleRepository.findOne({ where: { name: 'everest' } });

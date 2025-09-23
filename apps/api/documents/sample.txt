@@ -1,0 +1,18 @@
+Sample Document for RAG Testing
+
+This is a sample document created for testing the RAG (Retrieval-Augmented Generation) system.
+
+Key Features:
+- Document indexing and chunking
+- Semantic search capabilities
+- Vector embeddings for similarity matching
+- Integration with AI models for enhanced responses
+
+The system can process various file types including:
+- Plain text files (.txt)
+- Markdown files (.md)
+- JSON files (.json)
+- CSV files (.csv)
+- HTML files (.html)
+
+This sample content provides enough text to test the chunking and embedding functionality.

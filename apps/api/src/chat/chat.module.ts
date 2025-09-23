@@ -10,9 +10,10 @@ import { GenericSAPFormatterService } from './services/generic-sap-formatter.ser
 import { AIModelService } from './services/ai-model.service';
 import { Conversation } from './entities/conversation.entity';
 import { Message } from './entities/message.entity';
+import { DocumentsModule } from '../documents/documents.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Conversation, Message])],
+  imports: [TypeOrmModule.forFeature([Conversation, Message]), DocumentsModule],
   controllers: [ChatController],
   providers: [ChatService, McpService, McpClientService, ProactiveMcpService, SemanticMcpService, GenericSAPFormatterService, AIModelService],
   exports: [ChatService, McpService, AIModelService],

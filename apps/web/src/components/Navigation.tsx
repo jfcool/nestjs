@@ -15,6 +15,7 @@ const getRoutes = (t: any) => [
   { path: '/dashboard', name: t('navigation.dashboard'), icon: '📊', permission: 'dashboard' },
   { path: '/users', name: t('navigation.users'), icon: '👥', permission: 'users' },
   { path: '/sapodata', name: t('navigation.sapOData'), icon: '🔗', permission: 'sapodata' },
+  { path: '/documents', name: t('navigation.documents'), icon: '📄', permission: 'documents' },
   { path: '/chat', name: t('navigation.chat'), icon: '💬', permission: 'chat' },
   { path: '/permissions', name: t('navigation.permissions'), icon: '🔐', permission: 'permissions' },
 ];
