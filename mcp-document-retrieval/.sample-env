@@ -1,0 +1,18 @@
+# Copy this file to .env and fill in your actual values
+# Database Configuration for MCP Document Retrieval
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=postgres
+DB_PASSWORD=your_password_here
+DB_NAME=nestjs_app
+
+# Embedding Service Configuration
+EMBEDDING_PROVIDER=ollama
+OLLAMA_URL=http://localhost:11434
+OLLAMA_EMBEDDING_MODEL=nomic-embed-text
+EMBEDDING_DIMENSIONS=768
+
+# Alternative: OpenAI Configuration (requires API key)
+# EMBEDDING_PROVIDER=openai
+# OPENAI_API_KEY=sk-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+# OPENAI_EMBEDDING_MODEL=text-embedding-3-small
