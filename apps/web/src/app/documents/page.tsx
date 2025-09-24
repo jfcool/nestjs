@@ -14,6 +14,7 @@ import {
   useSearchDocuments, 
   useIndexPath, 
   useTestEmbeddingService,
+  useClearAllDocuments,
   type Document,
   type SearchResult,
   type DocumentStats
@@ -59,6 +60,7 @@ export default function DocumentsPage() {
   const { mutate: searchDocuments, isLoading: searchLoading } = useSearchDocuments();
   const { mutate: indexPathMutation, isLoading: indexLoading } = useIndexPath();
   const { mutate: testEmbedding, isLoading: testLoading } = useTestEmbeddingService();
+  const { mutate: clearAllDocuments, isLoading: clearLoading } = useClearAllDocuments();
 
   // Handlers
   const handleSearch = async () => {
@@ -308,6 +310,47 @@ export default function DocumentsPage() {
     }
   };
 
+  const handleClearAllDocuments = async () => {
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      '⚠️ WARNUNG: Alle Dokumente und Chunks werden unwiderruflich aus der Datenbank gelöscht!\n\n' +
+      'Diese Aktion kann nicht rückgängig gemacht werden.\n\n' +
+      'Möchten Sie wirklich fortfahren?'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await clearAllDocuments();
+      
+      toast({
+        title: '🗑️ Alle Indizes gelöscht',
+        description: 'Alle Dokumente und Chunks wurden erfolgreich aus der Datenbank entfernt.',
+      });
+      
+      // Refresh data to show empty state
+      refetchDocuments();
+      refetchStats();
+      
+      // Clear search results
+      setSearchResults([]);
+      
+    } catch (error) {
+      console.error('Clear all documents error:', error);
+      
+      let errorMessage = 'Fehler beim Löschen der Dokumente';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      toast({
+        title: '❌ Löschen fehlgeschlagen',
+        description: `${errorMessage}\n\nTechnische Details: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`,
+        variant: 'destructive',
+      });
+    }
+  };
+
   // Filter and sort documents
   const filteredAndSortedDocuments = React.useMemo(() => {
     let filtered = documents;
@@ -344,6 +387,13 @@ export default function DocumentsPage() {
           <p className="text-muted-foreground mt-2">{t('documents.description')}</p>
         </div>
         <div className="flex gap-2">
+          <Button 
+            onClick={handleClearAllDocuments} 
+            variant="destructive"
+            disabled={clearLoading}
+          >
+            🗑️ {clearLoading ? 'Lösche...' : 'Lösche alle Indizes'}
+          </Button>
           <Button 
             onClick={handleTestEmbedding} 
             variant="outline"
@@ -474,7 +524,7 @@ export default function DocumentsPage() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                ✅ Automatically finds all supported files (.pdf, .txt, .md, .docx, .doc, .rtf) in the folder and subfolders
+                ✅ Automatically finds all supported files (.pdf, .docx, .txt, .md, .html, .json, .csv) in the folder and subfolders
               </p>
             </div>
 
@@ -648,13 +698,27 @@ export default function DocumentsPage() {
                           {t('documents.list.fileSize', { size: (doc.fileSize / 1024).toFixed(1) })}
                         </Badge>
                         <Badge variant="outline">
-                          {t('documents.list.chunks', { count: doc.chunkCount })}
+                          {doc.chunkCount !== undefined ? `${doc.chunkCount} Chunks` : 'Loading...'}
                         </Badge>
                       </div>
                     </div>
                     <div className="text-right text-sm text-muted-foreground">
-                      <p>{t('documents.list.created', { date: new Date(doc.createdAt).toLocaleDateString() })}</p>
-                      <p>{t('documents.list.updated', { date: new Date(doc.updatedAt).toLocaleDateString() })}</p>
+                      <p>Erstellt: {new Date(doc.createdAt).toLocaleString('de-DE', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                      })}</p>
+                      <p>Aktualisiert: {new Date(doc.updatedAt).toLocaleString('de-DE', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                      })}</p>
                     </div>
                   </div>
                 </Card>

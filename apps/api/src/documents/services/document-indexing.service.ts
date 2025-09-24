@@ -55,6 +55,7 @@ export class DocumentIndexingService {
         ignoreInitial: false,
         persistent: true,
         ignored: /(^|[\/\\])\../, // ignore dotfiles
+        depth: 10, // Allow deep nesting
       });
 
       this.watcher.on('add', (filePath) => this.handleFileAdd(filePath));
@@ -150,11 +151,26 @@ export class DocumentIndexingService {
         return chunk;
       });
 
-      // Save chunks in batches
+      // Save chunks in batches using raw SQL for pgvector compatibility
       const batchSize = 50;
       for (let i = 0; i < chunkEntities.length; i += batchSize) {
         const batch = chunkEntities.slice(i, i + batchSize);
-        await this.chunkRepository.save(batch);
+        
+        // Use raw SQL to insert chunks with pgvector embeddings
+        for (const chunk of batch) {
+          const embeddingVector = chunk.embedding ? `[${chunk.embedding.join(',')}]` : null;
+          
+          await this.dataSource.query(`
+            INSERT INTO chunks (id, document_id, chunk_index, content, token_count, embedding, "createdAt", "updatedAt")
+            VALUES (gen_random_uuid(), $1, $2, $3, $4, $5::vector, NOW(), NOW())
+          `, [
+            chunk.document_id,
+            chunk.chunk_index,
+            chunk.content,
+            chunk.token_count,
+            embeddingVector
+          ]);
+        }
       }
 
       this.logger.log(`Successfully indexed document: ${filePath} with ${chunks.length} chunks`);
@@ -230,11 +246,21 @@ export class DocumentIndexingService {
   }
 
   async getDocuments(limit: number = 50, offset: number = 0): Promise<DocumentEntity[]> {
-    return this.documentRepository.find({
+    const documents = await this.documentRepository.find({
       take: limit,
       skip: offset,
       order: { updatedAt: 'DESC' },
     });
+
+    // Add chunk count for each document
+    for (const doc of documents) {
+      const chunkCount = await this.chunkRepository.count({
+        where: { document_id: doc.id },
+      });
+      (doc as any).chunkCount = chunkCount;
+    }
+
+    return documents;
   }
 
   async getDocumentById(id: string): Promise<DocumentEntity | null> {
@@ -277,5 +303,32 @@ export class DocumentIndexingService {
     await this.indexDirectory(this.watchPath);
     
     this.logger.log('Full reindex completed');
+  }
+
+  async clearAllDocuments(): Promise<void> {
+    this.logger.log('Clearing all documents and chunks from database...');
+    
+    try {
+      // Use raw SQL to delete all data efficiently
+      const chunkCount = await this.chunkRepository.count();
+      const docCount = await this.documentRepository.count();
+      
+      if (chunkCount > 0 || docCount > 0) {
+        // Delete all chunks first (due to foreign key constraints)
+        await this.dataSource.query('DELETE FROM chunks');
+        this.logger.log(`Deleted ${chunkCount} chunks`);
+        
+        // Delete all documents
+        await this.dataSource.query('DELETE FROM documents');
+        this.logger.log(`Deleted ${docCount} documents`);
+      } else {
+        this.logger.log('No documents or chunks to delete');
+      }
+      
+      this.logger.log('Successfully cleared all documents and chunks from database');
+    } catch (error) {
+      this.logger.error(`Failed to clear documents: ${error.message}`);
+      throw error;
+    }
   }
 }

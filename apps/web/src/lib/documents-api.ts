@@ -120,6 +120,12 @@ class DocumentsApiClient {
   async testEmbeddingService(): Promise<ApiResponse<{ connected: boolean; dimensions: number }>> {
     return this.request<{ connected: boolean; dimensions: number }>(API_ENDPOINTS.DOCUMENTS.EMBEDDING_TEST);
   }
+
+  async clearAllDocuments(): Promise<ApiResponse<any>> {
+    return this.request<any>('/documents/clear-all', {
+      method: 'DELETE',
+    });
+  }
 }
 
 export const documentsApi = new DocumentsApiClient();
@@ -274,6 +280,33 @@ export function useTestEmbeddingService() {
         return response.data;
       } else {
         throw new Error(response.error || 'Test failed');
+      }
+    } catch (err) {
+      setIsError(true);
+      setError(err as Error);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return { mutate, isLoading, isError, error };
+}
+
+export function useClearAllDocuments() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [isError, setIsError] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  const mutate = async (): Promise<any> => {
+    try {
+      setIsLoading(true);
+      setIsError(false);
+      const response = await documentsApi.clearAllDocuments();
+      if (response.success) {
+        return response.data;
+      } else {
+        throw new Error(response.error || 'Clear failed');
       }
     } catch (err) {
       setIsError(true);

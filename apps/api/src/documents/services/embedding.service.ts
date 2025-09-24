@@ -23,7 +23,7 @@ export class EmbeddingService implements EmbeddingProvider {
     this.apiKey = this.configService.get('OPENAI_API_KEY', '');
     this.apiUrl = this.configService.get('EMBEDDING_API_URL', 'https://api.openai.com/v1/embeddings');
     this.model = this.configService.get('EMBEDDING_MODEL', 'text-embedding-3-small');
-    this.dimensions = parseInt(this.configService.get('EMBEDDING_DIMENSIONS', '1536'), 10);
+    this.dimensions = parseInt(this.configService.get('EMBEDDING_DIMENSIONS', '1024'), 10);
     this.anthropicApiKey = this.configService.get('ANTHROPIC_API_KEY', '');
     this.anthropicModel = this.configService.get('ANTHROPIC_EMBEDDING_MODEL', 'claude-3-haiku-20240307');
   }

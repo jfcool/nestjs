@@ -37,14 +37,19 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Load translations for current locale
-    import(`../locales/${locale}.json`)
-      .then((module) => {
+    const loadTranslations = async () => {
+      try {
+        const module = await import(`../locales/${locale}.json`);
+        console.log(`Loaded translations for ${locale}:`, Object.keys(module.default).length, 'keys');
         setTranslations(module.default);
-      })
-      .catch((error) => {
+      } catch (error) {
         console.error(`Failed to load translations for ${locale}:`, error);
+        // Fallback to empty object
         setTranslations({});
-      });
+      }
+    };
+    
+    loadTranslations();
   }, [locale]);
 
   const changeLanguage = (newLocale: Locale) => {

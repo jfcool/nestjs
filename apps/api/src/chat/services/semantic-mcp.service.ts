@@ -29,7 +29,10 @@ export class SemanticMcpService implements OnModuleInit {
 
   async onModuleInit() {
     if (this.config.enabled) {
-      await this.buildSemanticIndex();
+      // Delay semantic index building to allow MCP servers to start
+      setTimeout(async () => {
+        await this.buildSemanticIndex();
+      }, 5000); // Wait 5 seconds for MCP servers to be ready
     }
   }
 
@@ -72,6 +75,12 @@ export class SemanticMcpService implements OnModuleInit {
           tables: ['BKPF', 'BSEG', 'FAGLFLEXA'],
           operations: ['tableContents', 'searchObject'],
           priority: 7
+        },
+        'documents': {
+          concepts: ['dokument', 'dokumente', 'document', 'documents', 'datei', 'dateien', 'file', 'files', 'suche', 'search', 'finde', 'find', 'durchsuche', 'durchsuchen', 'inhalt', 'content', 'text', 'begriffe', 'begriff', 'term', 'terms', 'wo', 'where', 'welche', 'which', 'enthalten', 'contains', 'kommt vor', 'appears', 'meiner', 'meinen', 'meine', 'my', 'in welchen', 'which of my'],
+          tables: [],
+          operations: ['search_documents', 'get_document_context', 'get_document_stats'],
+          priority: 10
         }
       },
       fallbackBehavior: 'search_all'
@@ -132,8 +141,8 @@ export class SemanticMcpService implements OnModuleInit {
     // Extract semantic information from user input
     const semanticAnalysis = this.analyzeUserIntent(inputLower);
     
-    if (!semanticAnalysis.tables.length) {
-      this.logger.debug('No semantic tables found for input');
+    if (!semanticAnalysis.tables.length && !semanticAnalysis.operations.some(op => ['search_documents', 'get_document_context', 'get_document_stats'].includes(op))) {
+      this.logger.debug('No semantic tables or document operations found for input');
       return [];
     }
 
@@ -235,8 +244,10 @@ export class SemanticMcpService implements OnModuleInit {
     analysis: { concepts: string[]; tables: string[]; operations: string[]; priority: number },
     activeServers: string[]
   ): { serverName: string; toolName: string; tool: McpTool } | null {
-    // Prioritize tableContents for data retrieval
-    for (const operation of ['tableContents', 'searchObject', 'objectStructure']) {
+    // Prioritize document operations first, then SAP operations
+    const operationPriority = ['search_documents', 'get_document_context', 'get_document_stats', 'tableContents', 'searchObject', 'objectStructure'];
+    
+    for (const operation of operationPriority) {
       if (analysis.operations.includes(operation)) {
         for (const serverName of activeServers) {
           const toolKey = `${serverName}.${operation}`;
@@ -258,7 +269,21 @@ export class SemanticMcpService implements OnModuleInit {
   ): McpToolCall {
     const args: any = {};
 
-    if (tool.toolName === 'tableContents') {
+    if (tool.toolName === 'search_documents') {
+      // Extract search query from user input
+      const searchQuery = this.extractSearchQuery(userInput, analysis.concepts);
+      args.query = searchQuery;
+      args.limit = analysis.rowCount || 10;
+      args.threshold = 0.1; // Much lower threshold for broader search
+    } else if (tool.toolName === 'get_document_context') {
+      // Extract search query from user input
+      const searchQuery = this.extractSearchQuery(userInput, analysis.concepts);
+      args.query = searchQuery;
+      args.maxChunks = analysis.rowCount || 5;
+      args.threshold = 0.3;
+    } else if (tool.toolName === 'get_document_stats') {
+      // No arguments needed for stats
+    } else if (tool.toolName === 'tableContents') {
       // Choose the most relevant table (first one for now, could be improved with ML)
       args.ddicEntityName = analysis.tables[0];
       args.rowNumber = analysis.rowCount || 10;
@@ -276,6 +301,44 @@ export class SemanticMcpService implements OnModuleInit {
       toolName: tool.toolName,
       arguments: args
     };
+  }
+
+  private extractSearchQuery(userInput: string, concepts: string[]): string {
+    const inputLower = userInput.toLowerCase();
+    
+    // Look for specific search terms after keywords like "nach", "für", "über", "mit"
+    const searchPatterns = [
+      /begriff\s+["']?([^"'?\s]+)["']?\s*(?:vor|enthalten)/i,
+      /term\s+["']?([^"'?\s]+)["']?\s*(?:appears|contains)/i,
+      /nach\s+["']?([^"'?\s]+)["']?\s*(?:suche|durchsuche|finde|kommt vor|enthalten)/i,
+      /für\s+["']?([^"'?\s]+)["']?\s*(?:suche|durchsuche|finde|kommt vor|enthalten)/i,
+      /über\s+["']?([^"'?\s]+)["']?\s*(?:suche|durchsuche|finde|kommt vor|enthalten)/i,
+      /mit\s+["']?([^"'?\s]+)["']?\s*(?:suche|durchsuche|finde|kommt vor|enthalten)/i,
+      /["']([^"'?\s]+)["']\s*(?:vor|enthalten|appears|contains)/i,
+      /kommt\s+der\s+begriff\s+([A-Z0-9]+)\s+vor/i,
+      /contains?\s+the\s+term\s+([A-Z0-9]+)/i
+    ];
+
+    for (const pattern of searchPatterns) {
+      const match = userInput.match(pattern);
+      if (match && match[1]) {
+        return match[1].trim();
+      }
+    }
+
+    // If no specific pattern found, use the first concept or extract from context
+    if (concepts.length > 0) {
+      return concepts[0];
+    }
+
+    // Last resort: extract potential search terms from the input
+    const words = inputLower.split(/\s+/);
+    const searchWords = words.filter(word => 
+      word.length > 2 && 
+      !['der', 'die', 'das', 'und', 'oder', 'mit', 'für', 'von', 'zu', 'in', 'auf', 'an', 'bei', 'nach', 'über', 'unter', 'vor', 'zwischen', 'durch', 'gegen', 'ohne', 'um', 'the', 'and', 'or', 'with', 'for', 'from', 'to', 'in', 'on', 'at', 'by', 'after', 'over', 'under', 'before', 'between', 'through', 'against', 'without', 'around', 'welchen', 'meiner', 'dokumente', 'kommt', 'enthalten'].includes(word)
+    );
+
+    return searchWords.slice(0, 3).join(' ') || 'documents';
   }
 
   /**

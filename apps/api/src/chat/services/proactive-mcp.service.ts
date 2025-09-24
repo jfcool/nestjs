@@ -32,7 +32,10 @@ export class ProactiveMcpService implements OnModuleInit {
 
   async onModuleInit() {
     if (this.config.enabled && this.config.autoDiscovery) {
-      await this.buildToolsIndex();
+      // Delay the tools index building to allow MCP servers to fully initialize
+      setTimeout(async () => {
+        await this.buildToolsIndex();
+      }, 5000); // Wait 5 seconds for MCP servers to be ready
     }
   }
 
@@ -73,6 +76,42 @@ export class ProactiveMcpService implements OnModuleInit {
               priority: 5,
               autoTrigger: true,
               keywords: ['structure', 'struktur', 'schema', 'definition'],
+              defaultArgs: {}
+            }
+          }
+        },
+        'document-retrieval': {
+          enabled: true,
+          keywords: ['document', 'dokument', 'documents', 'dokumente', 'file', 'datei', 'files', 'dateien', 'search', 'suche', 'find', 'finde', 'content', 'inhalt', 'text', 'kostenbescheid', 'rechnung', 'invoice', 'pilot', 'ausbildung', 'training', 'certificate', 'zertifikat'],
+          tools: {
+            'search_documents': {
+              priority: 10,
+              autoTrigger: true,
+              keywords: ['search', 'suche', 'find', 'finde', 'document', 'dokument', 'documents', 'dokumente', 'file', 'datei', 'files', 'dateien', 'content', 'inhalt', 'kostenbescheid', 'rechnung', 'invoice', 'pilot', 'ausbildung', 'training', 'certificate', 'zertifikat', 'bezahlt', 'paid', 'kosten', 'cost', 'betrag', 'amount'],
+              defaultArgs: { limit: 10, threshold: 0.3 }
+            },
+            'get_document_context': {
+              priority: 9,
+              autoTrigger: true,
+              keywords: ['context', 'kontext', 'relevant', 'information', 'info', 'details'],
+              defaultArgs: { maxChunks: 5, threshold: 0.3 }
+            },
+            'get_document_stats': {
+              priority: 5,
+              autoTrigger: true,
+              keywords: ['stats', 'statistics', 'statistik', 'overview', 'überblick', 'summary', 'zusammenfassung'],
+              defaultArgs: {}
+            },
+            'index_document': {
+              priority: 3,
+              autoTrigger: false,
+              keywords: ['index', 'indexieren', 'add', 'hinzufügen', 'upload'],
+              defaultArgs: {}
+            },
+            'test_embedding_service': {
+              priority: 2,
+              autoTrigger: false,
+              keywords: ['test', 'embedding', 'service', 'connection'],
               defaultArgs: {}
             }
           }
@@ -293,6 +332,14 @@ export class ProactiveMcpService implements OnModuleInit {
       } else {
         args.query = 'VBAK'; // Default fallback
       }
+    } else if (match.toolName === 'search_documents') {
+      // Extract search query from user input for document search
+      const searchTerms = this.extractDocumentSearchTerms(userInput);
+      args.query = searchTerms;
+    } else if (match.toolName === 'get_document_context') {
+      // Extract context query from user input
+      const searchTerms = this.extractDocumentSearchTerms(userInput);
+      args.query = searchTerms;
     } else if (match.toolName === 'natural_language_query') {
       // Use the full user input as natural language query
       args.query = userInput;
@@ -343,6 +390,59 @@ export class ProactiveMcpService implements OnModuleInit {
    */
   getConfig(): ProactiveMcpConfig {
     return { ...this.config };
+  }
+
+  /**
+   * Extract search terms from user input for document search
+   */
+  private extractDocumentSearchTerms(userInput: string): string {
+    const inputLower = userInput.toLowerCase();
+    
+    // Look for specific search terms after keywords - improved patterns
+    const searchPatterns = [
+      // German patterns
+      /begriff\s+["']?([^"'?\s]+)["']?\s*(?:vor|enthalten|kommt)/i,
+      /term\s+["']?([^"'?\s]+)["']?\s*(?:appears|contains)/i,
+      /enthalten\s+den\s+begriff\s+["']?([^"'?\s]+)["']?/i,
+      /contain\s+the\s+term\s+["']?([^"'?\s]+)["']?/i,
+      /nach\s+["']?([^"'?\s]+)["']?\s*(?:suche|durchsuche|finde)/i,
+      /für\s+["']?([^"'?\s]+)["']?\s*(?:suche|durchsuche|finde)/i,
+      /über\s+["']?([^"'?\s]+)["']?\s*(?:suche|durchsuche|finde)/i,
+      /mit\s+["']?([^"'?\s]+)["']?\s*(?:suche|durchsuche|finde)/i,
+      /["']([^"'?\s]+)["']\s*(?:vor|enthalten|appears|contains)/i,
+      /kommt\s+der\s+begriff\s+["']?([A-Z0-9]+)["']?\s+vor/i,
+      /contains?\s+the\s+term\s+["']?([A-Z0-9]+)["']?/i,
+      // Direct quoted terms
+      /["']([A-Z0-9]{2,})["']/i,
+      // Uppercase terms (likely technical terms)
+      /\b([A-Z]{3,})\b/,
+      // Specific document-related terms
+      /kostenbescheid|pilot|ausbildung|training|certificate|zertifikat|rechnung|invoice/i,
+    ];
+
+    for (const pattern of searchPatterns) {
+      const match = userInput.match(pattern);
+      if (match && match[1] && match[1].length > 1) {
+        return match[1].trim();
+      }
+    }
+
+    // If no specific pattern found, extract potential search terms from the input
+    const words = userInput.split(/\s+/);
+    const searchWords = words.filter(word => {
+      const cleanWord = word.replace(/['"?!.,;:]/g, '');
+      return cleanWord.length > 2 && 
+        !['der', 'die', 'das', 'und', 'oder', 'mit', 'für', 'von', 'zu', 'in', 'auf', 'an', 'bei', 'nach', 'über', 'unter', 'vor', 'zwischen', 'durch', 'gegen', 'ohne', 'um', 'the', 'and', 'or', 'with', 'for', 'from', 'to', 'in', 'on', 'at', 'by', 'after', 'over', 'under', 'before', 'between', 'through', 'against', 'without', 'around', 'welchen', 'welche', 'meiner', 'meinen', 'dokumente', 'documents', 'kommt', 'enthalten', 'contains', 'search', 'find', 'suche', 'finde'].includes(cleanWord.toLowerCase()) &&
+        !/^(ist|sind|war|waren|hat|haben|wird|werden|kann|können|soll|sollen|muss|müssen)$/i.test(cleanWord);
+    });
+
+    // Prefer uppercase words (technical terms) or longer words
+    const technicalTerms = searchWords.filter(word => /^[A-Z]{2,}$/.test(word.replace(/['"?!.,;:]/g, '')));
+    if (technicalTerms.length > 0) {
+      return technicalTerms[0].replace(/['"?!.,;:]/g, '');
+    }
+
+    return searchWords.slice(0, 2).join(' ') || 'documents';
   }
 
   /**

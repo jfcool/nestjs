@@ -34,6 +34,34 @@ export class DocumentEntity {
   @Column({ type: 'bigint', default: 0 })
   fileSize: number;
 
+  // Enhanced metadata for better search and classification
+  @Column({ nullable: true })
+  documentType: string; // 'invoice', 'certificate', 'contract', 'report', etc.
+
+  @Column({ nullable: true })
+  category: string; // 'financial', 'legal', 'technical', 'personal', etc.
+
+  @Column({ nullable: true })
+  language: string; // 'de', 'en', etc.
+
+  @Column({ type: 'text', nullable: true })
+  summary: string; // AI-generated summary for better search
+
+  @Column({ type: 'simple-array', nullable: true })
+  keywords: string[]; // Extracted keywords for search
+
+  @Column({ type: 'jsonb', default: {} })
+  extractedData: Record<string, any>; // Structured data (dates, amounts, etc.)
+
+  @Column({ type: 'float', default: 1.0 })
+  importance: number; // Importance score (0.0 - 2.0, default 1.0)
+
+  @Column({ type: 'int', default: 0 })
+  accessCount: number; // How often this document was accessed
+
+  @Column({ type: 'timestamptz', nullable: true })
+  lastAccessedAt: Date; // When was it last accessed
+
   @CreateDateColumn()
   createdAt: Date;
 

@@ -31,9 +31,9 @@ export class ChunkEntity {
   @Column()
   token_count: number;
 
-  // pgvector column - using 1024 dimensions for Anthropic hybrid embeddings
-  // Remove index to avoid PostgreSQL size limit issues
-  @Column({ type: 'simple-array', nullable: true })
+  // pgvector column - COMPLETELY EXCLUDED from TypeORM to prevent interference
+  // The DB has native vector(1536) column, we use raw SQL for all operations
+  @Index('idx_chunks_embedding_cosine', { synchronize: false }) // pgvector cosine similarity index
   embedding: number[];
 
   @CreateDateColumn()

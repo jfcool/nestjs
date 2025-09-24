@@ -9,6 +9,7 @@ import { McpService, McpToolCall } from './services/mcp.service';
 import { ProactiveMcpService } from './services/proactive-mcp.service';
 import { SemanticMcpService } from './services/semantic-mcp.service';
 import { AIModelService, ChatMessage } from './services/ai-model.service';
+import { DocumentRetrievalService } from '../documents/services/document-retrieval.service';
 
 @Injectable()
 export class ChatService {
@@ -23,6 +24,7 @@ export class ChatService {
     private proactiveMcpService: ProactiveMcpService,
     private semanticMcpService: SemanticMcpService,
     private aiModelService: AIModelService,
+    private documentRetrievalService: DocumentRetrievalService,
   ) {}
 
   async createConversation(dto: CreateConversationDto): Promise<Conversation> {
@@ -287,22 +289,27 @@ export class ChatService {
   }
 
   private getDefaultSystemPrompt(): string {
-    return `You are an intelligent AI assistant with access to MCP (Model Context Protocol) tools that allow you to interact with various systems including SAP ABAP systems and databases.
+    return `You are an intelligent AI assistant with access to MCP (Model Context Protocol) tools for various data sources and systems.
 
-IMPORTANT: You should proactively use available MCP tools when they can help answer the user's questions. Don't wait for explicit requests - if the user asks about SAP data, tables, objects, or database information, immediately use the appropriate MCP tools to provide accurate, real-time information.
-
-Available capabilities:
+AVAILABLE MCP TOOLS:
+- Document search and retrieval via document-retrieval server (search_documents, get_document_context, get_document_stats)
 - SAP ABAP system access via mcp-abap-abap-adt-api (table contents, object search, source code, etc.)
 - Database queries via agentdb (natural language queries, SQL execution)
-- Real-time data retrieval and analysis
 
-When users ask about:
-- SAP tables (like VBAK, VBAP, etc.) → Use tableContents tool immediately
-- SAP objects or classes → Use searchObject or classComponents tools
-- Database information → Use appropriate database query tools
-- Any technical data → Proactively fetch real data instead of giving generic responses
+DOCUMENT ACCESS:
+- Use the document-retrieval MCP tools to search through indexed documents
+- Available tools: search_documents, get_document_context, get_document_stats, index_document
+- The system will automatically detect document-related queries and use appropriate MCP tools
+- You receive formatted results with document paths, content, and relevance scores
 
-Always provide specific, data-driven answers based on the actual MCP tool results rather than generic responses.`;
+RESPONSE GUIDELINES:
+1. For document questions: Use document-retrieval MCP tools and analyze the results
+2. For SAP/database questions: Use appropriate MCP tools proactively  
+3. Always provide specific, data-driven answers based on actual MCP tool results
+4. Be confident and direct in your responses based on the provided data
+5. Use MCP tools proactively when they can help answer user questions
+
+All data access goes through MCP tools for consistent, reliable results.`;
   }
 
   private async generateSmartTitle(firstMessage: string): Promise<string> {
@@ -394,4 +401,5 @@ The title should capture the main topic or question being discussed. Be specific
       return userMessage.substring(0, 47) + (userMessage.length > 47 ? '...' : '');
     }
   }
+
 }

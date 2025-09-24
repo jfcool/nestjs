@@ -36,7 +36,7 @@ import { seedAuth } from './auth/seed-auth';
       password: process.env.DB_PASSWORD || 'joe',
       database: process.env.DB_NAME || 'nestjs_app',
       entities: [User, Connection, SapSecret, Conversation, Message, Role, DocumentEntity, ChunkEntity],
-      synchronize: process.env.NODE_ENV !== 'production', // Auto-create tables in development
+      synchronize: false, // Disabled to preserve native pgvector column
       logging: process.env.NODE_ENV === 'development',
     }),
     AuthModule,

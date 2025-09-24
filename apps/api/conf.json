@@ -43,6 +43,21 @@
         "get-entity-schema",
         "execute-entity-operation"
       ]
+    },
+    "document-retrieval": {
+      "command": "/Users/joe/.nvs/default/bin/node",
+      "args": ["/Users/joe/src/nestjs/mcp-document-retrieval/dist/index.js"],
+      "env": {
+        "API_BASE_URL": "http://localhost:3001"
+      },
+      "disabled": false,
+      "description": "Document retrieval and RAG system integration",
+      "autoApprove": [
+        "search_documents",
+        "get_document_context",
+        "get_document_stats",
+        "test_embedding_service"
+      ]
     }
   },
   "aiModels": {

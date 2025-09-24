@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Body,
   Param,
   Query,
@@ -226,6 +227,27 @@ export class DocumentsController {
           dimensions: this.embeddingService.getDimensions(),
         },
       };
+    }
+  }
+
+  @Delete('clear-all')
+  @RequirePermissions('documents')
+  @ApiOperation({ summary: 'Clear all documents and chunks from the database' })
+  @ApiResponse({ status: 200, description: 'All documents and chunks cleared successfully' })
+  async clearAllDocuments() {
+    try {
+      await this.indexingService.clearAllDocuments();
+      
+      return {
+        success: true,
+        message: 'All documents and chunks have been cleared from the database',
+      };
+    } catch (error) {
+      this.logger.error(`Failed to clear all documents: ${error.message}`);
+      throw new HttpException(
+        `Failed to clear documents: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 }

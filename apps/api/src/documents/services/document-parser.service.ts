@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import pdfParse from 'pdf-parse';
+import * as mammoth from 'mammoth';
 
 export interface ParsedDocument {
   text: string;
@@ -30,6 +32,10 @@ export class DocumentParserService {
         case '.html':
         case '.htm':
           return this.parseHtmlFile(buffer, filePath);
+        case '.pdf':
+          return this.parsePdfFile(buffer, filePath);
+        case '.docx':
+          return this.parseDocxFile(buffer, filePath);
         default:
           // For unsupported file types, try to read as text
           return this.parseTextFile(buffer, filePath);
@@ -124,6 +130,55 @@ export class DocumentParserService {
     };
   }
 
+  private async parsePdfFile(buffer: Buffer, filePath: string): Promise<ParsedDocument> {
+    try {
+      // Check if buffer has data
+      if (!buffer || buffer.length === 0) {
+        throw new Error('PDF file is empty or corrupted');
+      }
+      
+      const data = await pdfParse(buffer);
+      const title = path.basename(filePath, path.extname(filePath));
+      
+      return {
+        text: data.text.trim(),
+        title,
+        metadata: {
+          fileType: 'pdf',
+          pages: data.numpages,
+          info: data.info,
+        },
+      };
+    } catch (error) {
+      // Log as warning instead of error for corrupted files
+      if (error.message.includes('stream must have data') || error.message.includes('empty or corrupted')) {
+        this.logger.warn(`Skipping corrupted/empty PDF file: ${path.basename(filePath)}`);
+      } else {
+        this.logger.error(`Failed to parse PDF file ${filePath}: ${error.message}`);
+      }
+      throw new Error(`PDF parsing failed: ${error.message}`);
+    }
+  }
+
+  private async parseDocxFile(buffer: Buffer, filePath: string): Promise<ParsedDocument> {
+    try {
+      const result = await mammoth.extractRawText({ buffer });
+      const title = path.basename(filePath, path.extname(filePath));
+      
+      return {
+        text: result.value.trim(),
+        title,
+        metadata: {
+          fileType: 'docx',
+          messages: result.messages,
+        },
+      };
+    } catch (error) {
+      this.logger.error(`Failed to parse DOCX file ${filePath}: ${error.message}`);
+      throw new Error(`DOCX parsing failed: ${error.message}`);
+    }
+  }
+
   async getFileInfo(filePath: string): Promise<{
     size: number;
     mtime: Date;
@@ -146,7 +201,7 @@ export class DocumentParserService {
   isSupported(filePath: string): boolean {
     const ext = path.extname(filePath).toLowerCase();
     const supportedExtensions = [
-      '.txt', '.md', '.markdown', '.json', '.csv', '.html', '.htm'
+      '.txt', '.md', '.markdown', '.json', '.csv', '.html', '.htm', '.pdf', '.docx'
     ];
     
     return supportedExtensions.includes(ext);

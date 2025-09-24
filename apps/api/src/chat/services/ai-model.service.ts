@@ -251,14 +251,34 @@ export class AIModelService {
         mcpToolCalls.forEach((toolCall, index) => {
           mcpContext += `\nTool ${index + 1}: ${toolCall.toolCall.serverName}.${toolCall.toolCall.toolName}\n`;
           mcpContext += `Arguments: ${JSON.stringify(toolCall.toolCall.arguments, null, 2)}\n`;
+          
           if (toolCall.result.success) {
-            mcpContext += `Result: ${JSON.stringify(toolCall.result.result, null, 2)}\n`;
+            // Special handling for document-retrieval results
+            if (toolCall.toolCall.serverName === 'document-retrieval' && toolCall.toolCall.toolName === 'search_documents') {
+              const result = toolCall.result;
+              
+              // Handle the actual MCP response format: result.content[0].text contains the formatted results
+              if (result.content && Array.isArray(result.content) && result.content[0] && result.content[0].text) {
+                const mcpText = result.content[0].text;
+                mcpContext += `${mcpText}\n\n`;
+                mcpContext += `IMPORTANT: The above search results show the documents found. Present them clearly to the user with their relevance scores and content previews.\n`;
+              } else if (result.result && result.result.content && Array.isArray(result.result.content)) {
+                // Alternative format: result.result.content[0].text
+                const mcpText = result.result.content[0].text;
+                mcpContext += `${mcpText}\n\n`;
+                mcpContext += `IMPORTANT: The above search results show the documents found. Present them clearly to the user with their relevance scores and content previews.\n`;
+              } else {
+                mcpContext += `No documents found containing "${toolCall.toolCall.arguments.query}"\n`;
+              }
+            } else {
+              mcpContext += `Result: ${JSON.stringify(toolCall.result.result, null, 2)}\n`;
+            }
           } else {
             mcpContext += `Error: ${toolCall.result.error}\n`;
           }
         });
         mcpContext += '\n--- End MCP Tool Results ---\n\n';
-        mcpContext += 'Please use the above MCP tool results to answer the user\'s question. The data from the tools is real and current.';
+        mcpContext += 'IMPORTANT: Use the above MCP tool results to provide a detailed, helpful answer. If documents were found, list them with their relevance scores, titles, and previews. If no documents were found, explain why and provide suggestions.';
         
         // Add MCP context to the last user message
         if (anthropicMessages.length > 0 && anthropicMessages[anthropicMessages.length - 1].role === 'user') {
@@ -407,6 +427,62 @@ export class AIModelService {
         }
       }
       
+      // Handle document-retrieval queries
+      const documentToolCall = mcpToolCalls.find(tc => tc.toolCall.serverName === 'document-retrieval');
+      if (documentToolCall && documentToolCall.result.success) {
+        const result = documentToolCall.result;
+        
+        if (documentToolCall.toolCall.toolName === 'search_documents') {
+          if (result.documents && Array.isArray(result.documents) && result.documents.length > 0) {
+            responseContent = `Ich habe ${result.documents.length} Dokumente gefunden, die den Begriff "${documentToolCall.toolCall.arguments.query}" enthalten:\n\n`;
+            
+            result.documents.forEach((doc: any, index: number) => {
+              const score = (doc.similarity * 100).toFixed(1);
+              const preview = doc.content.substring(0, 150).replace(/\n/g, ' ');
+              
+              responseContent += `**${index + 1}. ${doc.filename}** (Relevanz: ${score}%)\n`;
+              responseContent += `📄 *${doc.document_title || 'Unbenanntes Dokument'}*\n`;
+              responseContent += `📝 Vorschau: "${preview}${doc.content.length > 150 ? '...' : ''}"\n`;
+              responseContent += `🔗 Chunk ${doc.chunk_index + 1} von ${doc.total_chunks}\n\n`;
+            });
+            
+            responseContent += `💡 **Tipp:** Sie können nach spezifischeren Begriffen suchen oder die Dokumente über die Documents-Seite direkt einsehen.`;
+          } else {
+            responseContent = `Ich habe keine Dokumente gefunden, die den Begriff "${documentToolCall.toolCall.arguments.query}" enthalten.\n\n`;
+            responseContent += `Das kann verschiedene Gründe haben:\n`;
+            responseContent += `• Der Begriff kommt in keinem der indexierten Dokumente vor\n`;
+            responseContent += `• Die Ähnlichkeitsschwelle ist zu hoch eingestellt\n`;
+            responseContent += `• Die Dokumente wurden noch nicht vollständig indexiert\n\n`;
+            responseContent += `💡 **Vorschläge:**\n`;
+            responseContent += `• Versuchen Sie verwandte Begriffe (z.B. "ABAP", "System", "Software")\n`;
+            responseContent += `• Überprüfen Sie die Documents-Seite, um zu sehen, welche Dokumente verfügbar sind\n`;
+            responseContent += `• Stellen Sie sicher, dass die Dokumente korrekt hochgeladen und indexiert wurden`;
+          }
+        } else if (documentToolCall.toolCall.toolName === 'get_document_context') {
+          if (result.chunks && Array.isArray(result.chunks) && result.chunks.length > 0) {
+            responseContent = `Hier ist der relevante Kontext zu "${documentToolCall.toolCall.arguments.query}" aus Ihren Dokumenten:\n\n`;
+            
+            result.chunks.forEach((chunk: any, index: number) => {
+              const score = (chunk.similarity * 100).toFixed(1);
+              responseContent += `**Kontext ${index + 1}** (Relevanz: ${score}%)\n`;
+              responseContent += `📄 Aus: ${chunk.filename}\n`;
+              responseContent += `📝 ${chunk.content}\n\n`;
+            });
+          } else {
+            responseContent = `Kein relevanter Kontext zu "${documentToolCall.toolCall.arguments.query}" gefunden.`;
+          }
+        } else if (documentToolCall.toolCall.toolName === 'get_document_stats') {
+          responseContent = `📊 **Dokumentenstatistiken:**\n\n`;
+          if (result.stats) {
+            responseContent += `• Gesamtanzahl Dokumente: ${result.stats.totalDocuments || 'Unbekannt'}\n`;
+            responseContent += `• Gesamtanzahl Chunks: ${result.stats.totalChunks || 'Unbekannt'}\n`;
+            responseContent += `• Durchschnittliche Chunk-Größe: ${result.stats.avgChunkSize || 'Unbekannt'} Zeichen\n`;
+          } else {
+            responseContent += `Statistiken konnten nicht abgerufen werden.`;
+          }
+        }
+      }
+
       // Handle AgentDB queries
       const agentDbToolCall = mcpToolCalls.find(tc => tc.toolCall.serverName === 'agentdb');
       if (agentDbToolCall && agentDbToolCall.result.success) {
@@ -631,5 +707,21 @@ Stellen Sie Ihre Frage gerne noch einmal - normalerweise funktioniert das System
 
   getAllModels(): AIModel[] {
     return this.config.models;
+  }
+
+  private extractTitleFromPath(filePath: string): string {
+    if (!filePath) return 'Unknown Document';
+    
+    // Extract filename from path
+    const filename = filePath.split('/').pop() || filePath;
+    
+    // Remove file extension and convert to title case
+    const nameWithoutExt = filename.replace(/\.[^/.]+$/, '');
+    
+    // Convert underscores and hyphens to spaces, then title case
+    return nameWithoutExt
+      .replace(/[_-]/g, ' ')
+      .replace(/\b\w/g, l => l.toUpperCase())
+      .trim() || 'Untitled Document';
   }
 }
