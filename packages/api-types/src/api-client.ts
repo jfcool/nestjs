@@ -33,9 +33,33 @@ export interface ApiResponse<T = any> {
   headers: Headers;
 }
 
+// Environment-based configuration
+const getApiBaseUrl = (): string => {
+  // Check if we're in development, staging, or production
+  if (typeof window !== 'undefined') {
+    // Client-side - always use the same hostname as the frontend, just change the port
+    const hostname = window.location.hostname;
+    const protocol = window.location.protocol;
+    
+    // Handle file:// protocol (fallback to localhost)
+    if (protocol === 'file:' || !hostname) {
+      return `http://localhost:3001`;
+    }
+    
+    // For all other cases (localhost, IP, hostname), use the same host with port 3001
+    // Force HTTP protocol for development (even if frontend uses HTTPS)
+    return `http://${hostname}:3001`;
+  }
+  
+  // Server-side or production fallback
+  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+};
+
 // Configuration
 const API_CONFIG = {
-  BASE_URL: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001',
+  get BASE_URL() {
+    return getApiBaseUrl();
+  },
   TIMEOUT: 30000,
   RETRY_ATTEMPTS: 3,
   RETRY_DELAY: 1000,
@@ -47,7 +71,6 @@ const delay = (ms: number): Promise<void> =>
 
 // Main API Client class
 class ApiClient {
-  private baseUrl: string;
   private defaultTimeout: number;
   private defaultRetries: number;
   private retryDelay: number;
@@ -55,10 +78,17 @@ class ApiClient {
   private refreshPromise: Promise<boolean> | null = null;
 
   constructor() {
-    this.baseUrl = API_CONFIG.BASE_URL;
+    // Don't cache BASE_URL - get it dynamically each time
     this.defaultTimeout = API_CONFIG.TIMEOUT;
     this.defaultRetries = API_CONFIG.RETRY_ATTEMPTS;
     this.retryDelay = API_CONFIG.RETRY_DELAY;
+  }
+
+  /**
+   * Get the current base URL dynamically
+   */
+  private getBaseUrl(): string {
+    return API_CONFIG.BASE_URL;
   }
 
   /**
@@ -157,7 +187,7 @@ class ApiClient {
       retries = this.defaultRetries,
     } = options;
 
-    const url = `${this.baseUrl}${endpoint}`;
+    const url = `${this.getBaseUrl()}${endpoint}`;
     const controller = new AbortController();
     
     // Set up timeout
@@ -314,20 +344,6 @@ class ApiClient {
     return this.makeRequest<T>(endpoint, { ...options, method: 'PATCH', body });
   }
 
-  /**
-   * Update base URL (useful for environment changes)
-   */
-  setBaseUrl(url: string): void {
-    this.baseUrl = url;
-    console.log(`[API] Base URL updated to: ${url}`);
-  }
-
-  /**
-   * Get current base URL
-   */
-  getBaseUrl(): string {
-    return this.baseUrl;
-  }
 }
 
 // Create singleton instance

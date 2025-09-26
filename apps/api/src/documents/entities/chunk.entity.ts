@@ -31,10 +31,13 @@ export class ChunkEntity {
   @Column()
   token_count: number;
 
-  // pgvector column - COMPLETELY EXCLUDED from TypeORM to prevent interference
-  // The DB has native vector(1536) column, we use raw SQL for all operations
-  @Index('idx_chunks_embedding_cosine', { synchronize: false }) // pgvector cosine similarity index
-  embedding: number[];
+  // pgvector column - use text type to prevent TypeORM interference
+  @Column({
+    type: 'text',
+    nullable: true,
+    select: false // Don't select by default to avoid performance issues
+  })
+  embedding?: string | null; // Will be handled as vector in raw SQL
 
   @CreateDateColumn()
   createdAt: Date;

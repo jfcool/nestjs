@@ -147,7 +147,8 @@ export class DocumentIndexingService {
         chunk.chunk_index = index;
         chunk.content = content;
         chunk.token_count = this.parserService.countTokens(content);
-        chunk.embedding = embeddings[index];
+        // Convert number array to string for database storage
+        chunk.embedding = embeddings[index] ? `[${embeddings[index].join(',')}]` : null;
         return chunk;
       });
 
@@ -158,7 +159,7 @@ export class DocumentIndexingService {
         
         // Use raw SQL to insert chunks with pgvector embeddings
         for (const chunk of batch) {
-          const embeddingVector = chunk.embedding ? `[${chunk.embedding.join(',')}]` : null;
+          const embeddingVector = chunk.embedding;
           
           await this.dataSource.query(`
             INSERT INTO chunks (id, document_id, chunk_index, content, token_count, embedding, "createdAt", "updatedAt")

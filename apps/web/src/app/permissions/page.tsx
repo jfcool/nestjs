@@ -7,7 +7,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { DataTable } from '@/components/ui/data-table';
-import { api } from '@/lib/api-client';
+import { apiClient } from '@acme/api-types/src/api-client';
+
+// Temporary API wrapper
+const api = {
+  permissions: {
+    roles: {
+      list: () => apiClient.get('/permissions/roles'),
+      create: (data: any) => apiClient.post('/permissions/roles', data),
+      update: (id: string, data: any) => apiClient.put(`/permissions/roles/${id}`, data),
+      delete: (id: string) => apiClient.delete(`/permissions/roles/${id}`),
+    },
+    users: {
+      list: () => apiClient.get('/permissions/users'),
+      assignRoles: (id: string, data: any) => apiClient.post(`/permissions/users/${id}/roles`, data),
+    },
+    available: () => apiClient.get('/permissions/available'),
+  },
+};
 import { useTranslation } from '@/lib/i18n';
 
 interface Role {

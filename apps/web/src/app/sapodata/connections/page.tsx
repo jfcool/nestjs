@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { api, ApiError, NetworkError } from '@/lib/api-client';
+import { apiClient, ApiError, NetworkError } from '@/lib/api-client';
 
 interface Connection {
   id: string;
@@ -104,7 +104,7 @@ export default function ConnectionsPage() {
   const loadConnections = async () => {
     try {
       setLoading(true);
-      const response = await api.sapOData.connections.list();
+      const response = await apiClient.get('/sap/connections');
       setConnections(response.data);
     } catch (error) {
       console.error('Error loading connections:', error);
@@ -128,7 +128,7 @@ export default function ConnectionsPage() {
     try {
       setLoading(true);
       
-      const response = await api.sapOData.connections.create(formData);
+      const response = await apiClient.post('/sap/connections', formData);
       const newConnection = response.data;
       setConnections(prev => [newConnection, ...prev]);
       setShowCreateDialog(false);
@@ -175,7 +175,7 @@ export default function ConnectionsPage() {
     try {
       setLoading(true);
       
-      const response = await api.sapOData.connections.test(connectionId, {});
+      const response = await apiClient.post(`/sap/connections/${connectionId}/test`, {});
       const result = response.data;
       
       toast({
@@ -219,7 +219,7 @@ export default function ConnectionsPage() {
     try {
       setLoading(true);
       
-      const response = await api.sapOData.connections.update(editingConnection.id, formData);
+      const response = await apiClient.put(`/sap/connections/${editingConnection.id}`, formData);
       const updatedConnection = response.data;
       setConnections(prev => prev.map(conn => 
         conn.id === editingConnection.id ? updatedConnection : conn
@@ -273,7 +273,7 @@ export default function ConnectionsPage() {
     try {
       setLoading(true);
       
-      await api.sapOData.connections.delete(connectionId);
+      await apiClient.delete(`/sap/connections/${connectionId}`);
       setConnections(prev => prev.filter(conn => conn.id !== connectionId));
       
       toast({

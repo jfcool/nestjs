@@ -40,7 +40,31 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import EntitySetsViewer from './components/EntitySetsViewer';
 import SapCloudSdkViewer from './components/SapCloudSdkViewer';
-import { api, ApiError, NetworkError } from '@/lib/api-client';
+import { apiClient, ApiError, NetworkError } from '@acme/api-types/src/api-client';
+
+// Temporary API wrapper
+const api = {
+  sap: {
+    connections: {
+      list: () => apiClient.get('/sapodata/connections'),
+      create: (data: any) => apiClient.post('/sap/connections', data),
+      test: (id: string) => apiClient.post(`/sap/connections/${id}/test`),
+      delete: (id: string) => apiClient.delete(`/sap/connections/${id}`),
+    },
+    services: {
+      list: (connectionId: string) => apiClient.get(`/sap/connections/${connectionId}/services`),
+      metadata: (connectionId: string, serviceName: string) => apiClient.get(`/sap/connections/${connectionId}/services/${serviceName}/metadata`),
+    },
+  },
+  sapOData: {
+    connections: {
+      list: () => apiClient.get('/sapodata/connections'),
+      catalog: (id: string, data: any) => apiClient.post(`/sapodata/connection/${id}/catalog`, data),
+      metadata: (id: string, data: any) => apiClient.post(`/sapodata/connection/${id}/metadata`, data),
+      data: (id: string, data: any) => apiClient.post(`/sapodata/connection/${id}/data`, data),
+    },
+  },
+};
 import { useTranslation } from '@/lib/i18n';
 
 interface ODataService {

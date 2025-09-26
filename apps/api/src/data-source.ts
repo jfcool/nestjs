@@ -21,6 +21,6 @@ export const AppDataSource = new DataSource({
   database: process.env.DB_NAME || 'nestjs_app',
   entities: [User, Connection, SapSecret, Conversation, Message, Role, DocumentEntity, ChunkEntity],
   migrations: ['src/migrations/*.ts'],
-  synchronize: false,
+  synchronize: true,
   logging: process.env.NODE_ENV === 'development',
 });

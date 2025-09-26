@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
 import { toast } from '@/hooks/use-toast';
-import { api, ApiError, NetworkError } from '@/lib/api-client';
+import { apiClient, ApiError, NetworkError } from '@/lib/api-client';
 import { useTranslation } from '@/lib/i18n';
 
 interface Message {
@@ -93,7 +93,7 @@ export default function ChatPage() {
 
   const fetchConversations = async () => {
     try {
-      const response = await api.chat.conversations.list();
+      const response = await apiClient.get('/chat/conversations');
       setConversations(response.data);
     } catch (error) {
       console.error('Error fetching conversations:', error);
@@ -113,7 +113,7 @@ export default function ChatPage() {
 
   const fetchMcpServers = async () => {
     try {
-      const response = await api.chat.mcp.servers();
+      const response = await apiClient.get('/chat/mcp/servers');
       setMcpServers(response.data);
     } catch (error) {
       console.error('Error fetching MCP servers:', error);
@@ -133,7 +133,7 @@ export default function ChatPage() {
 
   const reloadMcpConfiguration = async () => {
     try {
-      const response = await api.chat.mcp.reload();
+      const response = await apiClient.post('/chat/mcp/reload');
       if (response.data.success) {
         await fetchMcpServers();
         toast({
@@ -165,7 +165,7 @@ export default function ChatPage() {
 
   const fetchAiModels = async () => {
     try {
-      const response = await api.chat.models.all();
+      const response = await apiClient.get('/chat/models');
       setAiModels(response.data);
     } catch (error) {
       console.error('Error fetching AI models:', error);
@@ -185,7 +185,7 @@ export default function ChatPage() {
 
   const fetchDefaultModel = async () => {
     try {
-      const response = await api.chat.models.default();
+      const response = await apiClient.get('/chat/models/default');
       const defaultModelData = response.data;
       setDefaultModel(defaultModelData);
       setSelectedModel(defaultModelData.id);
@@ -207,7 +207,7 @@ export default function ChatPage() {
 
   const setDefaultModelApi = async (modelId: string) => {
     try {
-      const response = await api.chat.models.setDefault({ modelId });
+      const response = await apiClient.post('/chat/models/default', { modelId });
       await fetchDefaultModel();
       toast({
         title: 'Success',
@@ -241,7 +241,7 @@ export default function ChatPage() {
       let mcpServerNames: string[] = [];
       if (useMcp) {
         try {
-          const mcpResponse = await api.chat.mcp.servers();
+          const mcpResponse = await apiClient.get('/chat/mcp/servers');
           const mcpServers = mcpResponse.data;
           // Only include servers that are not disabled
           mcpServerNames = mcpServers
@@ -254,7 +254,7 @@ export default function ChatPage() {
         }
       }
 
-      const response = await api.chat.conversations.create({
+      const response = await apiClient.post('/chat/conversations', {
         title: 'New Conversation',
         model: modelToUse,
         mcpServers: mcpServerNames,
@@ -299,7 +299,7 @@ export default function ChatPage() {
 
     try {
       // Use regular message sending for now (fallback until SSE is fully working)
-      const response = await api.chat.messages.send({
+      const response = await apiClient.post('/chat/messages', {
         content: userMessage,
         role: 'user',
         conversationId: currentConversation?.id,
@@ -348,7 +348,7 @@ export default function ChatPage() {
 
   const deleteConversation = async (conversationId: string) => {
     try {
-      await api.chat.conversations.delete(conversationId);
+      await apiClient.delete(`/chat/conversations/${conversationId}`);
       setConversations(conversations.filter(conv => conv.id !== conversationId));
       if (currentConversation?.id === conversationId) {
         setCurrentConversation(null);
@@ -390,7 +390,7 @@ export default function ChatPage() {
     }
 
     try {
-      const response = await api.chat.conversations.update(conversationId, { title: editingTitle.trim() });
+      const response = await apiClient.put(`/chat/conversations/${conversationId}`, { title: editingTitle.trim() });
       const updatedConversation = response.data;
       setConversations(conversations.map(conv => 
         conv.id === conversationId ? { ...conv, title: updatedConversation.title } : conv

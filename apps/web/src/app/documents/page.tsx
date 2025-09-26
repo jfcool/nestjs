@@ -72,14 +72,12 @@ export default function DocumentsPage() {
         threshold: similarityThreshold
       });
       setSearchResults(results);
-      toast({
-        title: t('documents.search.searchComplete'),
-        description: t('documents.search.foundResults', { count: results.length }),
-      });
     } catch (error) {
+      console.error('Search error:', error);
+      setSearchResults([]);
       toast({
-        title: t('documents.search.searchFailed'),
-        description: error instanceof Error ? error.message : t('errors.generic'),
+        title: 'Search Failed',
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
         variant: 'destructive',
       });
     }
@@ -353,28 +351,39 @@ export default function DocumentsPage() {
 
   // Filter and sort documents
   const filteredAndSortedDocuments = React.useMemo(() => {
+    if (!documents || !Array.isArray(documents)) {
+      return [];
+    }
+    
     let filtered = documents;
     
     if (fileTypeFilter !== 'all') {
-      filtered = documents.filter(doc => doc.fileType.toLowerCase() === fileTypeFilter.toLowerCase());
+      filtered = documents.filter(doc => doc && doc.fileType && doc.fileType.toLowerCase() === fileTypeFilter.toLowerCase());
     }
 
     return filtered.sort((a, b) => {
+      if (!a || !b) return 0;
+      
       switch (sortBy) {
         case 'name':
-          return a.title.localeCompare(b.title);
+          return (a.title || '').localeCompare(b.title || '');
         case 'size':
-          return b.fileSize - a.fileSize;
+          return (b.fileSize || 0) - (a.fileSize || 0);
         case 'date':
         default:
-          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+          const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+          const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+          return dateB - dateA;
       }
     });
   }, [documents, fileTypeFilter, sortBy]);
 
   // Get unique file types for filter
   const fileTypes = React.useMemo(() => {
-    const types = new Set(documents.map(doc => doc.fileType));
+    if (!documents || !Array.isArray(documents)) {
+      return [];
+    }
+    const types = new Set(documents.filter(doc => doc && doc.fileType).map(doc => doc.fileType));
     return Array.from(types);
   }, [documents]);
 

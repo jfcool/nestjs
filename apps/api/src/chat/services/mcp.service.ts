@@ -212,6 +212,53 @@ export class McpService implements OnModuleInit, OnModuleDestroy {
       );
     }
 
+    if (serverName === 'document-retrieval') {
+      tools.push(
+        {
+          name: 'search_documents',
+          description: 'Search documents using semantic vector search',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              query: { type: 'string', description: 'Search query' },
+              limit: { type: 'number', description: 'Maximum number of results', default: 5 },
+              threshold: { type: 'number', description: 'Similarity threshold', default: 0.1 }
+            },
+            required: ['query']
+          }
+        },
+        {
+          name: 'get_document_context',
+          description: 'Get relevant document context for RAG applications',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              query: { type: 'string', description: 'Context query' },
+              maxChunks: { type: 'number', description: 'Maximum chunks to return', default: 5 },
+              threshold: { type: 'number', description: 'Relevance threshold', default: 0.7 }
+            },
+            required: ['query']
+          }
+        },
+        {
+          name: 'get_document_stats',
+          description: 'Get statistics about indexed documents',
+          inputSchema: {
+            type: 'object',
+            properties: {}
+          }
+        },
+        {
+          name: 'test_embedding_service',
+          description: 'Test the embedding service connection',
+          inputSchema: {
+            type: 'object',
+            properties: {}
+          }
+        }
+      );
+    }
+
     if (serverName === 'everest-SAP-system') {
       tools.push(
         {
@@ -611,6 +658,11 @@ export class McpService implements OnModuleInit, OnModuleDestroy {
         return await this.executeSapTool(toolCall);
       }
       
+      // For the document-retrieval system, call the actual API
+      if (toolCall.serverName === 'document-retrieval') {
+        return await this.executeDocumentRetrievalTool(toolCall);
+      }
+      
       // Default simulation for other servers
       return {
         success: true,
@@ -626,6 +678,88 @@ export class McpService implements OnModuleInit, OnModuleDestroy {
       return {
         success: false,
         error: error.message
+      };
+    }
+  }
+
+  private async executeDocumentRetrievalTool(toolCall: McpToolCall): Promise<McpToolResult> {
+    const axios = require('axios');
+    
+    try {
+      // Get admin token for internal API calls
+      const loginResponse = await axios.post('http://localhost:3001/auth/login', {
+        username: 'admin',
+        password: 'admin'
+      });
+      const token = loginResponse.data.access_token;
+      
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+      
+      switch (toolCall.toolName) {
+        case 'search_documents':
+          const searchUrl = `http://localhost:3001/documents/search?query=${encodeURIComponent(toolCall.arguments.query)}&limit=${toolCall.arguments.limit || 5}&threshold=${toolCall.arguments.threshold || 0.1}`;
+          const searchResponse = await axios.get(searchUrl, { headers });
+          
+          return {
+            success: true,
+            result: {
+              query: toolCall.arguments.query,
+              results: searchResponse.data.data,
+              resultsCount: searchResponse.data.resultsCount,
+              message: `Found ${searchResponse.data.resultsCount} documents matching "${toolCall.arguments.query}"`
+            }
+          };
+
+        case 'get_document_context':
+          const contextUrl = `http://localhost:3001/documents/context?query=${encodeURIComponent(toolCall.arguments.query)}&maxChunks=${toolCall.arguments.maxChunks || 5}&threshold=${toolCall.arguments.threshold || 0.7}`;
+          const contextResponse = await axios.get(contextUrl, { headers });
+          
+          return {
+            success: true,
+            result: {
+              query: toolCall.arguments.query,
+              context: contextResponse.data.data,
+              message: `Retrieved context for "${toolCall.arguments.query}"`
+            }
+          };
+
+        case 'get_document_stats':
+          const statsResponse = await axios.get('http://localhost:3001/documents/stats', { headers });
+          
+          return {
+            success: true,
+            result: {
+              stats: statsResponse.data.data,
+              message: 'Document statistics retrieved successfully'
+            }
+          };
+
+        case 'test_embedding_service':
+          const testResponse = await axios.get('http://localhost:3001/documents/embedding/test', { headers });
+          
+          return {
+            success: true,
+            result: {
+              connected: testResponse.data.data.connected,
+              dimensions: testResponse.data.data.dimensions,
+              message: `Embedding service is ${testResponse.data.data.connected ? 'connected' : 'disconnected'}`
+            }
+          };
+
+        default:
+          return {
+            success: false,
+            error: `Unknown document-retrieval tool: ${toolCall.toolName}`
+          };
+      }
+    } catch (error) {
+      this.logger.error(`Document retrieval tool error: ${error.message}`);
+      return {
+        success: false,
+        error: `Document retrieval failed: ${error.message}`
       };
     }
   }

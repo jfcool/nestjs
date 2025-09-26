@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { api, ApiError, NetworkError } from '@/lib/api-client';
+import { apiClient, ApiError, NetworkError } from '@/lib/api-client';
 
 interface SapCloudSdkResponse {
   data: any;
@@ -35,7 +35,7 @@ export default function SapCloudSdkViewer({ onBack }: SapCloudSdkViewerProps) {
 
   const checkSdkHealth = async () => {
     try {
-      const healthResponse = await api.sapOData.cloudSdk.health();
+      const healthResponse = await apiClient.get('/sapodata/cloud-sdk/health');
       setSdkHealth(healthResponse.data);
     } catch (error) {
       console.error('Error checking SAP Cloud SDK health:', error);
@@ -84,7 +84,7 @@ export default function SapCloudSdkViewer({ onBack }: SapCloudSdkViewerProps) {
         data
       };
 
-      const apiResponse = await api.sapOData.cloudSdk.execute(requestPayload);
+      const apiResponse = await apiClient.post('/sapodata/cloud-sdk/execute', requestPayload);
       setResponse(apiResponse.data);
     } catch (error) {
       console.error('Error executing SAP Cloud SDK request:', error);
@@ -115,7 +115,7 @@ export default function SapCloudSdkViewer({ onBack }: SapCloudSdkViewerProps) {
         method: 'GET'
       };
 
-      const apiResponse = await api.sapOData.cloudSdk.execute(requestPayload);
+      const apiResponse = await apiClient.post('/sapodata/cloud-sdk/execute', requestPayload);
       setResponse(apiResponse.data);
     } catch (error) {
       console.error('Error executing Business Partners example:', error);
@@ -146,7 +146,7 @@ export default function SapCloudSdkViewer({ onBack }: SapCloudSdkViewerProps) {
         method: 'GET'
       };
 
-      const apiResponse = await api.sapOData.cloudSdk.execute(requestPayload);
+      const apiResponse = await apiClient.post('/sap/cloud-sdk/execute', requestPayload);
       setResponse(apiResponse.data);
     } catch (error) {
       console.error('Error executing Metadata example:', error);

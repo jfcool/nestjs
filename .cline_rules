@@ -1,0 +1,64 @@
+# Cline Rules for NestJS + Next.js Monorepo
+
+## 🎯 MANDATORY: Read PROJECT_GUIDELINES.md First
+
+Before starting ANY task in this project, you MUST:
+
+1. **Read PROJECT_GUIDELINES.md** - Contains all development rules and patterns
+2. **Follow the established architecture** - Use system modules, Docker, Jest tests
+3. **Never bypass the guidelines** - All patterns are mandatory for consistency
+
+## 🔧 Key Rules Summary
+
+### Infrastructure
+- **ALWAYS use Docker Compose** (`docker-compose up -d`)
+- **NEVER manual setup** of PostgreSQL, Ollama, or pgvector
+- **Use service names**: `nestjs-postgres`, `nestjs-ollama`
+
+### System Modules (MANDATORY)
+- **Users Module**: Use `UsersService` for all user operations
+- **Auth Module**: Use `@UseGuards(JwtAuthGuard, PermissionsGuard)` and `@Permissions()`
+- **Documents Module**: Use `EmbeddingService` and `DocumentRetrievalService`
+- **Chat Module**: Use `ChatService` and `McpService`
+
+### Testing
+- **ALWAYS use Jest** (`npm test`, `npm run test:e2e`)
+- **NEVER create ad-hoc test scripts** (test-*.js files are forbidden)
+- **Use test utilities** for database cleanup
+
+### API Communication
+- **ALWAYS use generated hooks** from `@acme/api-types`
+- **NEVER use direct fetch/axios** calls
+- **Run `pnpm gen:client`** after backend changes
+
+### AI/ML
+- **ALWAYS use Ollama** for embeddings (port 11434)
+- **ALWAYS use pgvector** for vector storage (768 dimensions)
+- **NEVER use external AI APIs** (OpenAI, etc.)
+
+### Internationalization
+- **ALWAYS use translation system** (`t('key')`)
+- **NEVER use hardcoded strings** in UI
+
+## 🚫 Forbidden Actions
+
+- Creating custom user/auth/permission systems
+- Manual infrastructure setup
+- Direct HTTP calls bypassing API client
+- Ad-hoc test scripts instead of Jest
+- External AI services instead of Ollama
+- Hardcoded text strings in components
+
+## 📋 Before Each Task
+
+1. Check if Docker services are running: `docker-compose ps`
+2. Verify PROJECT_GUIDELINES.md for specific patterns
+3. Use existing system modules instead of creating new ones
+4. Follow the established testing patterns
+5. Use generated API hooks for communication
+
+## 🎯 Development Flow
+
+1. Start Docker services → 2. Modify backend → 3. Run `pnpm gen:client` → 4. Use generated hooks → 5. Add translations → 6. Write Jest tests
+
+Remember: This project has a complete system architecture. Use it instead of recreating functionality!

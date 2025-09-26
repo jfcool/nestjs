@@ -229,8 +229,8 @@ class DocumentRetrievalServer {
                 },
                 threshold: {
                   type: 'number',
-                  description: 'Minimum similarity score threshold (default: 0.3, range: 0.0-1.0)',
-                  default: 0.3,
+                  description: 'Minimum similarity score threshold (default: 0.1, range: 0.0-1.0)',
+                  default: 0.1,
                   minimum: 0.0,
                   maximum: 1.0,
                 },
@@ -402,7 +402,7 @@ class DocumentRetrievalServer {
     const { 
       query, 
       limit = 10, 
-      threshold = 0.3,
+      threshold = 0.1,
       documentType = null, 
       category = null 
     } = args;

@@ -36,7 +36,7 @@ import { seedAuth } from './auth/seed-auth';
       password: process.env.DB_PASSWORD || 'joe',
       database: process.env.DB_NAME || 'nestjs_app',
       entities: [User, Connection, SapSecret, Conversation, Message, Role, DocumentEntity, ChunkEntity],
-      synchronize: false, // Disabled to preserve native pgvector column
+      synchronize: true, // Temporarily enabled to create tables
       logging: process.env.NODE_ENV === 'development',
     }),
     AuthModule,
@@ -58,6 +58,7 @@ export class AppModule implements OnModuleInit {
     try {
       await seedUsers(this.dataSource);
       await seedAuth(this.dataSource);
+      console.log('Seeding completed successfully');
     } catch (error) {
       console.error('Error seeding data:', error);
     }

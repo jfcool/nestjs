@@ -264,7 +264,9 @@ export class DocumentRetrievalService {
       return [];
     }
 
-    return this.performVectorSearch(chunk.embedding, limit, 0.5);
+    // Parse the embedding string back to number array
+    const embeddingArray = chunk.embedding ? JSON.parse(chunk.embedding) : [];
+    return this.performVectorSearch(embeddingArray, limit, 0.5);
   }
 
   async getDocumentContext(documentId: string): Promise<{

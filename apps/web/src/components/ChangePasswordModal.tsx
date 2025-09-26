@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { api } from '@/lib/api-client';
+import { apiClient } from '@/lib/api-client';
 
 interface ChangePasswordModalProps {
   open: boolean;
@@ -58,7 +58,7 @@ export default function ChangePasswordModal({ open, onClose }: ChangePasswordMod
     setIsLoading(true);
     
     try {
-      await api.auth.changePassword({
+      await apiClient.post('/auth/change-password', {
         currentPassword,
         newPassword,
       });

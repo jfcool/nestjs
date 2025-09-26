@@ -1,6 +1,17 @@
 'use client';
 
-import { API_CONFIG, API_ENDPOINTS } from './api-config';
+import { apiClient } from '@/lib/api-client';
+
+// API endpoints
+const API_ENDPOINTS = {
+  DOCUMENTS: {
+    LIST: '/documents',
+    STATS: '/documents/stats',
+    SEARCH: '/documents/search',
+    INDEX: '/documents/index',
+    EMBEDDING_TEST: '/documents/embedding/test',
+  },
+};
 
 // Temporary API client for documents until orval generation is fixed
 // This follows the project pattern and can be easily replaced with generated hooks
@@ -42,89 +53,72 @@ export interface ApiResponse<T> {
 }
 
 class DocumentsApiClient {
-  private async request<T>(endpoint: string, options?: RequestInit): Promise<ApiResponse<T>> {
-    try {
-      // Get auth token from sessionStorage (matches AuthContext)
-      const token = typeof window !== 'undefined' ? sessionStorage.getItem('token') : null;
-      
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      
-      // Add additional headers if provided
-      if (options?.headers) {
-        Object.assign(headers, options.headers);
-      }
-      
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
-      const response = await fetch(`${API_CONFIG.BASE_URL}${endpoint}`, {
-        headers,
-        ...options,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}: ${response.statusText}` }));
-        console.error('API request failed:', {
-          endpoint,
-          status: response.status,
-          statusText: response.statusText,
-          error: errorData
-        });
-        
-        // Return detailed error information
-        return {
-          success: false,
-          data: null as any,
-          error: errorData.message || errorData.error || `HTTP ${response.status}: ${response.statusText}`,
-        };
-      }
-
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('API request failed:', error);
-      return {
-        success: false,
-        data: null as any,
-        error: error instanceof Error ? error.message : 'Network error occurred',
-      };
-    }
-  }
-
   async getDocuments(limit: number = 50, offset: number = 0): Promise<ApiResponse<Document[]>> {
-    return this.request<Document[]>(`${API_ENDPOINTS.DOCUMENTS.LIST}?limit=${limit}&offset=${offset}`);
+    try {
+      const response = await apiClient.get(`${API_ENDPOINTS.DOCUMENTS.LIST}?limit=${limit}&offset=${offset}`);
+      // API returns { success: true, data: [...], pagination: {...} }
+      return { success: true, data: response.data.data || response.data };
+    } catch (error: any) {
+      return { success: false, data: [], error: error.message || 'Failed to fetch documents' };
+    }
   }
 
   async getStats(): Promise<ApiResponse<DocumentStats>> {
-    return this.request<DocumentStats>(API_ENDPOINTS.DOCUMENTS.STATS);
+    try {
+      const response = await apiClient.get(API_ENDPOINTS.DOCUMENTS.STATS);
+      // API returns { success: true, data: {...} }
+      return { success: true, data: response.data.data || response.data };
+    } catch (error: any) {
+      return { success: false, data: null as any, error: error.message || 'Failed to fetch stats' };
+    }
   }
 
   async searchDocuments(query: string, limit: number = 10, threshold?: number): Promise<ApiResponse<SearchResult[]>> {
-    let url = `${API_ENDPOINTS.DOCUMENTS.SEARCH}?query=${encodeURIComponent(query)}&limit=${limit}`;
-    if (threshold !== undefined) {
-      url += `&threshold=${threshold}`;
+    try {
+      let url = `${API_ENDPOINTS.DOCUMENTS.SEARCH}?query=${encodeURIComponent(query)}&limit=${limit}`;
+      if (threshold !== undefined) {
+        url += `&threshold=${threshold}`;
+      }
+      const response = await apiClient.get(url);
+      // API returns { success: true, data: [...] } or error response
+      if (response.data && response.data.success !== false) {
+        return { success: true, data: response.data.data || response.data || [] };
+      } else {
+        return { success: false, data: [], error: response.data?.message || 'Search failed' };
+      }
+    } catch (error: any) {
+      // Handle 500 errors and other API errors gracefully
+      const errorMessage = error.response?.data?.message || error.message || 'Search failed';
+      return { success: false, data: [], error: errorMessage };
     }
-    return this.request<SearchResult[]>(url);
   }
 
   async indexPath(path: string): Promise<ApiResponse<any>> {
-    return this.request<any>(API_ENDPOINTS.DOCUMENTS.INDEX, {
-      method: 'POST',
-      body: JSON.stringify({ path }),
-    });
+    try {
+      const response = await apiClient.post(API_ENDPOINTS.DOCUMENTS.INDEX, { path });
+      return { success: true, data: response.data };
+    } catch (error: any) {
+      return { success: false, data: null, error: error.message || 'Indexing failed' };
+    }
   }
 
   async testEmbeddingService(): Promise<ApiResponse<{ connected: boolean; dimensions: number }>> {
-    return this.request<{ connected: boolean; dimensions: number }>(API_ENDPOINTS.DOCUMENTS.EMBEDDING_TEST);
+    try {
+      const response = await apiClient.get(API_ENDPOINTS.DOCUMENTS.EMBEDDING_TEST);
+      // API returns { success: true, data: {...} }
+      return { success: true, data: response.data.data || response.data };
+    } catch (error: any) {
+      return { success: false, data: null as any, error: error.message || 'Test failed' };
+    }
   }
 
   async clearAllDocuments(): Promise<ApiResponse<any>> {
-    return this.request<any>('/documents/clear-all', {
-      method: 'DELETE',
-    });
+    try {
+      const response = await apiClient.delete('/documents/clear-all');
+      return { success: true, data: response.data };
+    } catch (error: any) {
+      return { success: false, data: null, error: error.message || 'Clear failed' };
+    }
   }
 }
 

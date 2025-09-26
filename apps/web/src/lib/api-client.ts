@@ -5,15 +5,13 @@
  * retries, timeouts, and logging.
  */
 
-import { API_CONFIG, API_ENDPOINTS, ApiRequestOptions, HttpMethod } from './api-config';
-
 // Custom error types
 export class ApiError extends Error {
   constructor(
     message: string,
     public status?: number,
     public endpoint?: string,
-    public method?: HttpMethod
+    public method?: string
   ) {
     super(message);
     this.name = 'ApiError';
@@ -35,13 +33,44 @@ export interface ApiResponse<T = any> {
   headers: Headers;
 }
 
+// Environment-based configuration
+const getApiBaseUrl = (): string => {
+  // Check if we're in development, staging, or production
+  if (typeof window !== 'undefined') {
+    // Client-side - always use the same hostname as the frontend, just change the port
+    const hostname = window.location.hostname;
+    const protocol = window.location.protocol;
+    
+    // Handle file:// protocol (fallback to localhost)
+    if (protocol === 'file:' || !hostname) {
+      return `http://localhost:3001`;
+    }
+    
+    // For all other cases (localhost, IP, hostname), use the same host with port 3001
+    // Force HTTP protocol for development (even if frontend uses HTTPS)
+    return `http://${hostname}:3001`;
+  }
+  
+  // Server-side or production fallback
+  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+};
+
+// Configuration
+const API_CONFIG = {
+  get BASE_URL() {
+    return getApiBaseUrl();
+  },
+  TIMEOUT: 30000,
+  RETRY_ATTEMPTS: 3,
+  RETRY_DELAY: 1000,
+};
+
 // Utility function to wait/delay
 const delay = (ms: number): Promise<void> => 
   new Promise(resolve => setTimeout(resolve, ms));
 
 // Main API Client class
 class ApiClient {
-  private baseUrl: string;
   private defaultTimeout: number;
   private defaultRetries: number;
   private retryDelay: number;
@@ -49,10 +78,17 @@ class ApiClient {
   private refreshPromise: Promise<boolean> | null = null;
 
   constructor() {
-    this.baseUrl = API_CONFIG.BASE_URL;
+    // Don't cache BASE_URL - get it dynamically each time
     this.defaultTimeout = API_CONFIG.TIMEOUT;
     this.defaultRetries = API_CONFIG.RETRY_ATTEMPTS;
     this.retryDelay = API_CONFIG.RETRY_DELAY;
+  }
+
+  /**
+   * Get the current base URL dynamically
+   */
+  private getBaseUrl(): string {
+    return API_CONFIG.BASE_URL;
   }
 
   /**
@@ -94,7 +130,7 @@ class ApiClient {
   private async performRefresh(): Promise<boolean> {
     try {
       // Check if we have user credentials to re-authenticate
-      const userData = sessionStorage.getItem('user');
+      const userData = typeof window !== 'undefined' ? sessionStorage.getItem('user') : null;
       if (!userData) {
         this.clearSession();
         return false;
@@ -135,7 +171,13 @@ class ApiClient {
    */
   private async makeRequest<T = any>(
     endpoint: string,
-    options: ApiRequestOptions = {}
+    options: {
+      method?: string;
+      headers?: Record<string, string>;
+      body?: any;
+      timeout?: number;
+      retries?: number;
+    } = {}
   ): Promise<ApiResponse<T>> {
     const {
       method = 'GET',
@@ -145,7 +187,7 @@ class ApiClient {
       retries = this.defaultRetries,
     } = options;
 
-    const url = `${this.baseUrl}${endpoint}`;
+    const url = `${this.getBaseUrl()}${endpoint}`;
     const controller = new AbortController();
     
     // Set up timeout
@@ -270,142 +312,42 @@ class ApiClient {
   /**
    * GET request
    */
-  async get<T = any>(endpoint: string, options: Omit<ApiRequestOptions, 'method' | 'body'> = {}): Promise<ApiResponse<T>> {
+  async get<T = any>(endpoint: string, options: Omit<Parameters<typeof this.makeRequest>[1], 'method' | 'body'> = {}): Promise<ApiResponse<T>> {
     return this.makeRequest<T>(endpoint, { ...options, method: 'GET' });
   }
 
   /**
    * POST request
    */
-  async post<T = any>(endpoint: string, body?: any, options: Omit<ApiRequestOptions, 'method' | 'body'> = {}): Promise<ApiResponse<T>> {
+  async post<T = any>(endpoint: string, body?: any, options: Omit<Parameters<typeof this.makeRequest>[1], 'method' | 'body'> = {}): Promise<ApiResponse<T>> {
     return this.makeRequest<T>(endpoint, { ...options, method: 'POST', body });
   }
 
   /**
    * PUT request
    */
-  async put<T = any>(endpoint: string, body?: any, options: Omit<ApiRequestOptions, 'method' | 'body'> = {}): Promise<ApiResponse<T>> {
+  async put<T = any>(endpoint: string, body?: any, options: Omit<Parameters<typeof this.makeRequest>[1], 'method' | 'body'> = {}): Promise<ApiResponse<T>> {
     return this.makeRequest<T>(endpoint, { ...options, method: 'PUT', body });
   }
 
   /**
    * DELETE request
    */
-  async delete<T = any>(endpoint: string, options: Omit<ApiRequestOptions, 'method' | 'body'> = {}): Promise<ApiResponse<T>> {
+  async delete<T = any>(endpoint: string, options: Omit<Parameters<typeof this.makeRequest>[1], 'method' | 'body'> = {}): Promise<ApiResponse<T>> {
     return this.makeRequest<T>(endpoint, { ...options, method: 'DELETE' });
   }
 
   /**
    * PATCH request
    */
-  async patch<T = any>(endpoint: string, body?: any, options: Omit<ApiRequestOptions, 'method' | 'body'> = {}): Promise<ApiResponse<T>> {
+  async patch<T = any>(endpoint: string, body?: any, options: Omit<Parameters<typeof this.makeRequest>[1], 'method' | 'body'> = {}): Promise<ApiResponse<T>> {
     return this.makeRequest<T>(endpoint, { ...options, method: 'PATCH', body });
   }
 
-  /**
-   * Update base URL (useful for environment changes)
-   */
-  setBaseUrl(url: string): void {
-    this.baseUrl = url;
-    console.log(`[API] Base URL updated to: ${url}`);
-  }
-
-  /**
-   * Get current base URL
-   */
-  getBaseUrl(): string {
-    return this.baseUrl;
-  }
 }
 
 // Create singleton instance
 export const apiClient = new ApiClient();
 
-// Convenience functions for common operations
-export const api = {
-  // Users
-  users: {
-    list: () => apiClient.get(API_ENDPOINTS.USERS.LIST),
-    create: (userData: any) => apiClient.post(API_ENDPOINTS.USERS.CREATE, userData),
-    update: (id: string, userData: any) => apiClient.put(API_ENDPOINTS.USERS.UPDATE(id), userData),
-    delete: (id: string) => apiClient.delete(API_ENDPOINTS.USERS.DELETE(id)),
-  },
-
-  // Chat
-  chat: {
-    conversations: {
-      list: () => apiClient.get('/chat/conversations'),
-      create: (conversationData: any) => apiClient.post('/chat/conversations', conversationData),
-      update: (id: string, conversationData: any) => apiClient.put(`/chat/conversations/${id}`, conversationData),
-      delete: (id: string) => apiClient.delete(`/chat/conversations/${id}`),
-    },
-    messages: {
-      send: (messageData: any) => apiClient.post('/chat/messages', messageData),
-    },
-    mcp: {
-      servers: () => apiClient.get('/chat/mcp/servers'),
-      reload: () => apiClient.post('/chat/mcp/reload'),
-    },
-    models: {
-      all: () => apiClient.get('/chat/models/all'),
-      default: () => apiClient.get('/chat/models/default'),
-      setDefault: (modelData: any) => apiClient.post('/chat/models/default', modelData),
-    },
-  },
-
-  // Permissions
-  permissions: {
-    available: () => apiClient.get(API_ENDPOINTS.PERMISSIONS.AVAILABLE),
-    roles: {
-      list: () => apiClient.get(API_ENDPOINTS.PERMISSIONS.ROLES),
-      create: (roleData: any) => apiClient.post(API_ENDPOINTS.PERMISSIONS.ROLES, roleData),
-      update: (id: string, roleData: any) => apiClient.put(API_ENDPOINTS.PERMISSIONS.ROLE_BY_ID(id), roleData),
-      delete: (id: string) => apiClient.delete(API_ENDPOINTS.PERMISSIONS.ROLE_BY_ID(id)),
-    },
-    users: {
-      list: () => apiClient.get(API_ENDPOINTS.PERMISSIONS.USERS),
-      assignRoles: (userId: string, roleData: any) => apiClient.post(API_ENDPOINTS.PERMISSIONS.USER_ROLES(userId), roleData),
-      removeRole: (userId: string, roleId: string) => apiClient.delete(API_ENDPOINTS.PERMISSIONS.USER_ROLE_DELETE(userId, roleId)),
-    },
-  },
-
-  // Auth
-  auth: {
-    login: (credentials: any) => apiClient.post('/auth/login', credentials),
-    changePassword: (passwordData: any) => apiClient.post('/auth/change-password', passwordData),
-    me: () => apiClient.get('/auth/me'),
-  },
-
-  // Dashboard
-  dashboard: {
-    stats: () => apiClient.get('/dashboard/stats'),
-  },
-
-  // SAP OData
-  sapOData: {
-    connections: {
-      list: () => apiClient.get('/sapodata/connections'),
-      create: (connectionData: any) => apiClient.post('/sapodata/connections', connectionData),
-      update: (id: string, connectionData: any) => apiClient.put(`/sapodata/connections/${id}`, connectionData),
-      delete: (id: string) => apiClient.delete(`/sapodata/connections/${id}`),
-      test: (id: string, testData: any) => apiClient.post(`/sapodata/connections/${id}/test`, testData),
-      catalog: (id: string, catalogData: any) => apiClient.post(`/sapodata/connection/${id}/catalog`, catalogData),
-      metadata: (id: string, metadataData: any) => apiClient.post(`/sapodata/connection/${id}/metadata`, metadataData),
-      data: (id: string, dataRequest: any) => apiClient.post(`/sapodata/connection/${id}/data`, dataRequest),
-    },
-    services: {
-      metadataParsed: (connectionId: string, serviceName: string, requestData: any) => 
-        apiClient.post(`/sapodata/connection/${connectionId}/service/${serviceName}/metadata/parsed`, requestData),
-      entitySetData: (connectionId: string, serviceName: string, entitySetName: string, requestData: any) => 
-        apiClient.post(`/sapodata/connection/${connectionId}/service/${serviceName}/entityset/${entitySetName}`, requestData),
-    },
-    cloudSdk: {
-      health: () => apiClient.get('/sapodata/cloud-sdk/health'),
-      execute: (requestData: any) => apiClient.post('/sapodata/cloud-sdk/execute', requestData),
-      businessPartners: (requestData: any) => apiClient.post('/sapodata/cloud-sdk/business-partners', requestData),
-    },
-  },
-};
-
 // Export everything
-export { apiClient as default, API_ENDPOINTS, API_CONFIG };
+export { apiClient as default };

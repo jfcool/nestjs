@@ -1,0 +1,107 @@
+version: '3.8'
+
+services:
+  # PostgreSQL with pgvector extension
+  postgres:
+    image: ankane/pgvector:latest
+    container_name: nestjs-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nestjs_app
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: joe
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d nestjs_app"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - nestjs-network
+
+  # PgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: nestjs-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+    ports:
+      - "8080:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./pgadmin-servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - nestjs-network
+
+  # Ollama for AI embeddings
+  ollama:
+    image: ollama/ollama:latest
+    container_name: nestjs-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_ORIGINS=*
+      - OLLAMA_HOST=0.0.0.0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - nestjs-network
+
+  # Ollama model initialization
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: nestjs-ollama-init
+    restart: "no"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=ollama:11434
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - nestjs-network
+    command: >
+      sh -c "
+        echo 'Waiting for Ollama to be ready...' &&
+        sleep 10 &&
+        echo 'Pulling nomic-embed-text model...' &&
+        ollama pull nomic-embed-text &&
+        echo 'Model pulled successfully!' &&
+        echo 'Testing model...' &&
+        ollama run nomic-embed-text 'Hello, this is a test embedding.' &&
+        echo 'Ollama setup complete!'
+      "
+
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  ollama_data:
+    driver: local
+
+networks:
+  nestjs-network:
+    driver: bridge
+    name: nestjs-network

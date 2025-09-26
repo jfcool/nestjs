@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AuthGuard } from '@/components/AuthGuard';
-import { api } from '@/lib/api-client';
+import { apiClient } from '@/lib/api-client';
 import { useTranslation } from '@/lib/i18n';
 
 interface DashboardStats {
@@ -41,7 +41,7 @@ export default function DashboardPage() {
     const fetchDashboardStats = async () => {
       try {
         setLoading(true);
-        const response = await api.dashboard.stats();
+        const response = await apiClient.get('/dashboard/stats');
         setStats(response.data);
         setError(null);
       } catch (err) {

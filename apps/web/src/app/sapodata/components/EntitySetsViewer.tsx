@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { api, ApiError, NetworkError } from '@/lib/api-client';
+import { apiClient, ApiError, NetworkError } from '@/lib/api-client';
 
 /**
  * SAP OData Entity Sets Explorer Component
@@ -123,7 +123,7 @@ export default function EntitySetsViewer({ serviceName, connectionId, onBack }: 
       setError(null);
 
       // First get the parsed metadata to extract entity sets
-      const response = await api.sapOData.services.metadataParsed(connectionId, serviceName, {
+      const response = await apiClient.post(`/sapodata/connection/${connectionId}/service/${serviceName}/metadata/parsed`, {
         cacheConnectionId: undefined // Optional cache connection ID
       });
 
@@ -157,7 +157,7 @@ export default function EntitySetsViewer({ serviceName, connectionId, onBack }: 
       setError(null);
       setSelectedEntitySet(entitySet);
 
-      const apiResponse = await api.sapOData.services.entitySetData(connectionId, serviceName, entitySet.name, {
+      const apiResponse = await apiClient.post(`/sapodata/connection/${connectionId}/service/${serviceName}/entityset/${entitySet.name}`, {
         options: queryOptions,
         cacheConnectionId: undefined // Optional cache connection ID
       });

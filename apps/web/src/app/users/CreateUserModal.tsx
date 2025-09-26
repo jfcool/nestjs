@@ -2,46 +2,25 @@
 
 import { useState } from 'react';
 import { User, Mail } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
-import { useCreateUser, getGetUsersQueryKey } from '@acme/api-types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { apiClient } from '@/lib/api-client';
 
 interface CreateUserModalProps {
   visible: boolean;
   onClose: () => void;
+  onUserCreated?: () => void;
 }
 
-export default function CreateUserModal({ visible, onClose }: CreateUserModalProps) {
+export default function CreateUserModal({ visible, onClose, onUserCreated }: CreateUserModalProps) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [nameError, setNameError] = useState('');
   const [emailError, setEmailError] = useState('');
-  const qc = useQueryClient();
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  
-  const createUser = useCreateUser({
-    mutation: {
-      onSuccess: () => {
-        qc.invalidateQueries({ queryKey: getGetUsersQueryKey() as any });
-        resetForm();
-        onClose();
-        toast({
-          title: "Erfolg",
-          description: "Benutzer erfolgreich erstellt!",
-        });
-      },
-      onError: (err) => {
-        toast({
-          title: "Fehler",
-          description: err instanceof Error ? err.message : 'Fehler beim Erstellen des Benutzers',
-          variant: "destructive",
-        });
-      },
-    },
-  });
 
   const resetForm = () => {
     setName('');
@@ -80,12 +59,32 @@ export default function CreateUserModal({ visible, onClose }: CreateUserModalPro
       return;
     }
 
-    createUser.mutate({
-      data: {
+    try {
+      setIsLoading(true);
+      
+      await apiClient.post('/users', {
         name: name.trim(),
         email: email.trim() || null,
-      },
-    });
+      });
+
+      resetForm();
+      onClose();
+      onUserCreated?.();
+      
+      toast({
+        title: "Erfolg",
+        description: "Benutzer erfolgreich erstellt!",
+      });
+    } catch (error) {
+      console.error('Error creating user:', error);
+      toast({
+        title: "Fehler",
+        description: error instanceof Error ? error.message : 'Fehler beim Erstellen des Benutzers',
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleCancel = () => {
@@ -147,8 +146,8 @@ export default function CreateUserModal({ visible, onClose }: CreateUserModalPro
             <Button type="button" variant="outline" onClick={handleCancel}>
               Abbrechen
             </Button>
-            <Button type="submit" disabled={createUser.isPending}>
-              {createUser.isPending ? 'Erstelle...' : 'Benutzer erstellen'}
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? 'Erstelle...' : 'Benutzer erstellen'}
             </Button>
           </DialogFooter>
         </form>

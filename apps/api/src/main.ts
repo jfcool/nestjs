@@ -9,8 +9,8 @@ async function bootstrap() {
   // CORS aktivieren für Frontend-Kommunikation (auch von anderen Rechnern)
   app.enableCors({
     origin: function (origin, callback) {
-      // Erlaubt alle Origins in der Entwicklung
-      if (!origin || process.env.NODE_ENV === 'development') {
+      // Erlaubt alle Origins in der Entwicklung (NODE_ENV ist normalerweise nicht gesetzt in dev)
+      if (!origin || !process.env.NODE_ENV || process.env.NODE_ENV === 'development') {
         callback(null, true);
       } else {
         // In Produktion nur spezifische Origins erlauben
@@ -47,7 +47,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, document); // UI unter /docs, JSON unter /docs-json
 
-  const port = process.env.PORT || 3001;
+  const port = process.env.PORT || 3002;
   const host = process.env.HOST || '0.0.0.0'; // Bindet an alle Netzwerk-Interfaces
   
   await app.listen(port, host);
