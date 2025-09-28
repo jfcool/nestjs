@@ -75,8 +75,11 @@ export default function ConnectionsPage() {
     loadConnections();
   }, []);
 
-  // Reset parameters when connection type changes
+  // Reset parameters when connection type changes (but not when editing)
   useEffect(() => {
+    // Don't reset parameters if we're editing a connection
+    if (editingConnection) return;
+    
     if (formData.type === 'sap') {
       setFormData(prev => ({
         ...prev,
@@ -99,12 +102,12 @@ export default function ConnectionsPage() {
         }
       }));
     }
-  }, [formData.type]);
+  }, [formData.type, editingConnection]);
 
   const loadConnections = async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get('/sap/connections');
+      const response = await apiClient.get('/sapodata/connections');
       setConnections(response.data);
     } catch (error) {
       console.error('Error loading connections:', error);
@@ -128,7 +131,7 @@ export default function ConnectionsPage() {
     try {
       setLoading(true);
       
-      const response = await apiClient.post('/sap/connections', formData);
+      const response = await apiClient.post('/sapodata/connections', formData);
       const newConnection = response.data;
       setConnections(prev => [newConnection, ...prev]);
       setShowCreateDialog(false);
@@ -175,7 +178,7 @@ export default function ConnectionsPage() {
     try {
       setLoading(true);
       
-      const response = await apiClient.post(`/sap/connections/${connectionId}/test`, {});
+      const response = await apiClient.post(`/sapodata/connections/${connectionId}/test`, {});
       const result = response.data;
       
       toast({
@@ -203,11 +206,23 @@ export default function ConnectionsPage() {
 
   const editConnection = (connection: Connection) => {
     setEditingConnection(connection);
+    
+    // For editing, we need to handle password fields specially
+    const editParameters = { ...connection.parameters };
+    
+    // Clear password fields for security (they won't be returned from API)
+    if (connection.type === 'sap') {
+      editParameters.password = ''; // Clear password for editing
+    } else if (connection.type === 'agentdb') {
+      editParameters.apiKey = ''; // Clear API key for editing
+      editParameters.token = editParameters.token || ''; // Keep token if available
+    }
+    
     setFormData({
       name: connection.name,
       type: connection.type,
       description: connection.description || '',
-      parameters: { ...connection.parameters },
+      parameters: editParameters,
       cacheConnectionId: connection.cacheConnectionId
     });
     setShowEditDialog(true);
@@ -219,7 +234,7 @@ export default function ConnectionsPage() {
     try {
       setLoading(true);
       
-      const response = await apiClient.put(`/sap/connections/${editingConnection.id}`, formData);
+      const response = await apiClient.put(`/sapodata/connections/${editingConnection.id}`, formData);
       const updatedConnection = response.data;
       setConnections(prev => prev.map(conn => 
         conn.id === editingConnection.id ? updatedConnection : conn
@@ -273,7 +288,7 @@ export default function ConnectionsPage() {
     try {
       setLoading(true);
       
-      await apiClient.delete(`/sap/connections/${connectionId}`);
+      await apiClient.delete(`/sapodata/connections/${connectionId}`);
       setConnections(prev => prev.filter(conn => conn.id !== connectionId));
       
       toast({
@@ -331,10 +346,17 @@ export default function ConnectionsPage() {
       );
     }
 
+    // Show different label for password fields when editing
+    const isPasswordField = field.key === 'password' || field.key === 'apiKey';
+    const isRequired = field.required && !(editingConnection && isPasswordField);
+    const labelText = editingConnection && isPasswordField 
+      ? `${field.label} (leave empty to keep current)` 
+      : field.label;
+
     return (
       <div key={field.key}>
         <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', marginBottom: '4px' }}>
-          {field.label} {field.required && '*'}
+          {labelText} {isRequired && '*'}
         </label>
         <Input
           type={field.type}
@@ -361,6 +383,12 @@ export default function ConnectionsPage() {
     const fields = getParameterFields();
     return fields.every(field => {
       if (!field.required) return true;
+      
+      // When editing, password fields are optional (they can be left empty to keep existing password)
+      if (editingConnection && (field.key === 'password' || field.key === 'apiKey')) {
+        return true; // Password fields are optional when editing
+      }
+      
       const value = formData.parameters[field.key];
       return value !== undefined && value !== '' && value !== null;
     });

@@ -20,7 +20,6 @@ export const AppDataSource = new DataSource({
   password: process.env.DB_PASSWORD || 'joe',
   database: process.env.DB_NAME || 'nestjs_app',
   entities: [User, Connection, SapSecret, Conversation, Message, Role, DocumentEntity, ChunkEntity],
-  migrations: ['src/migrations/*.ts'],
-  synchronize: true,
+  synchronize: true, // Enable synchronize for now
   logging: process.env.NODE_ENV === 'development',
 });

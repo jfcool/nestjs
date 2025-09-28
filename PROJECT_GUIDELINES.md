@@ -363,6 +363,106 @@ nestjs/
 
 ---
 
+## 🔐 Authentication & User Setup (MANDATORY)
+
+### Initial Setup for New Installations
+
+When setting up the system for the first time or if you encounter sign-in issues, follow these steps:
+
+#### 1. Database Migration & Seeding
+The system uses TypeORM migrations to automatically seed initial users and roles:
+
+```bash
+# Navigate to API directory
+cd apps/api
+
+# Run migrations (automatically seeds data)
+npm run migration:run
+
+#### 2. Default User Accounts
+After running migrations, these test accounts are available:
+
+| Username | Password | Role | Permissions |
+|----------|----------|------|-------------|
+| `admin` | `admin` | System Administrator | Full system access |
+| `everest` | `everest` | Everest User | Chat & SAP OData access |
+
+#### 3. Role & Permission System
+The system includes these predefined roles:
+
+- **admin**: `["dashboard", "users", "sapodata", "documents", "chat", "permissions"]`
+- **everest**: `["chat", "sapodata"]`
+
+#### 4. Sample Connection Data
+The migration automatically creates working sample connections:
+
+**SAP Demo System** (SAP Connection):
+- **Base URL**: `https://3.238.76.92:44301` (Production SAP system)
+- **Username**: `EVEREST`
+- **Password**: Securely stored via password secret system
+- **Cache**: Linked to AgentDB Cache for performance
+- **Features**: Timeout configuration, SSL settings, custom User-Agent
+
+**AgentDB Cache** (AgentDB Connection):
+- **Database**: `SAP_ODATA_CACHE`
+- **API Key**: Encrypted and securely stored
+- **Token**: UUID-based access token
+- **Base URL**: `https://api.agentdb.dev`
+- **Purpose**: Caches SAP OData responses for improved performance
+
+#### 5. Connection Management Features
+- **Edit Functionality**: Full CRUD operations with proper form validation
+- **Password Security**: Passwords stored as encrypted secrets, not in plain text
+- **Cache Integration**: SAP connections can be linked to AgentDB for caching
+- **Connection Testing**: Built-in connection test functionality
+- **Type Safety**: Supports both SAP and AgentDB connection types
+- **User-Friendly Interface**: Clear hints for password fields during editing
+
+#### 4. Migration File Location
+The seeding migration is located at:
+```
+apps/api/src/migrations/1727450000000-SeedInitialData.ts
+```
+
+This migration:
+- Creates all necessary roles with permissions
+- Creates users with proper authentication credentials
+- Assigns appropriate roles to users
+- Uses bcrypt for password hashing
+- Handles conflicts gracefully (won't duplicate data)
+
+#### 5. Troubleshooting Sign-in Issues
+
+**Problem**: Cannot sign in / Authentication fails
+**Solution**: 
+1. Ensure database is running: `docker-compose ps`
+2. Run migrations: `npm run migration:run`
+3. Check if users exist in database via PgAdmin (localhost:8080)
+4. Try default credentials: `admin` / `admin`
+
+**Problem**: "User not found" errors
+**Solution**: The old seed files created users without usernames/passwords. Run the new migration to fix this.
+
+**Problem**: Database connection errors
+**Solution**: Ensure PostgreSQL is running via Docker: `docker-compose up -d`
+
+#### 6. For Other AI Installations
+When deploying this system elsewhere:
+
+1. **Copy the migration file**: Ensure `1727450000000-SeedInitialData.ts` is included
+2. **Run Docker setup**: `docker-compose up -d`
+3. **Run migrations**: `npm run migration:run` or `node run-migrations.js`
+4. **Test authentication**: Use `admin` / `admin` to verify setup
+5. **Create additional users**: Use the admin interface or API endpoints
+
+#### 7. Production Considerations
+- Change default passwords immediately in production
+- Use environment variables for sensitive configuration
+- Consider using proper user management systems for large deployments
+- The migration system ensures consistent setup across environments
+
+---
+
 ## 🔧 Development Rules for AI
 
 ### 1. Module Dependencies

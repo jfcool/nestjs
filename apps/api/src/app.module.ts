@@ -1,7 +1,6 @@
-import { Module, OnModuleInit } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
@@ -19,8 +18,6 @@ import { Message } from './chat/entities/message.entity';
 import { Role } from './auth/entities/role.entity';
 import { DocumentEntity } from './documents/entities/document.entity';
 import { ChunkEntity } from './documents/entities/chunk.entity';
-import { seedUsers } from './users/seed-users';
-import { seedAuth } from './auth/seed-auth';
 
 @Module({
   imports: [
@@ -36,7 +33,7 @@ import { seedAuth } from './auth/seed-auth';
       password: process.env.DB_PASSWORD || 'joe',
       database: process.env.DB_NAME || 'nestjs_app',
       entities: [User, Connection, SapSecret, Conversation, Message, Role, DocumentEntity, ChunkEntity],
-      synchronize: true, // Temporarily enabled to create tables
+      synchronize: true, // Enable synchronize for now
       logging: process.env.NODE_ENV === 'development',
     }),
     AuthModule,
@@ -50,17 +47,4 @@ import { seedAuth } from './auth/seed-auth';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule implements OnModuleInit {
-  constructor(private dataSource: DataSource) {}
-
-  async onModuleInit() {
-    // Seed data after module initialization
-    try {
-      await seedUsers(this.dataSource);
-      await seedAuth(this.dataSource);
-      console.log('Seeding completed successfully');
-    } catch (error) {
-      console.error('Error seeding data:', error);
-    }
-  }
-}
+export class AppModule {}
