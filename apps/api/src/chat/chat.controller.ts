@@ -5,8 +5,6 @@ import { map } from 'rxjs/operators';
 import { ChatService } from './chat.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { SendMessageDto } from './dto/send-message.dto';
-import { Conversation } from './entities/conversation.entity';
-import { Message } from './entities/message.entity';
 
 @ApiTags('chat')
 @Controller('chat')
@@ -17,23 +15,23 @@ export class ChatController {
 
   @Get('conversations')
   @ApiOperation({ operationId: 'getConversations' })
-  @ApiOkResponse({ type: Conversation, isArray: true })
-  async getConversations(): Promise<Conversation[]> {
+  @ApiOkResponse({ description: 'List of conversations' })
+  async getConversations() {
     return this.chatService.getConversations();
   }
 
   @Post('conversations')
   @ApiOperation({ operationId: 'createConversation' })
-  @ApiCreatedResponse({ type: Conversation })
-  async createConversation(@Body() dto: CreateConversationDto): Promise<Conversation> {
+  @ApiCreatedResponse({ description: 'Created conversation' })
+  async createConversation(@Body() dto: CreateConversationDto) {
     return this.chatService.createConversation(dto);
   }
 
   @Get('conversations/:id')
   @ApiOperation({ operationId: 'getConversation' })
   @ApiParam({ name: 'id', type: 'string' })
-  @ApiOkResponse({ type: Conversation })
-  async getConversation(@Param('id') id: string): Promise<Conversation> {
+  @ApiOkResponse({ description: 'Conversation details' })
+  async getConversation(@Param('id') id: string) {
     return this.chatService.getConversation(id);
   }
 
@@ -52,27 +50,20 @@ export class ChatController {
   @Put('conversations/:id')
   @ApiOperation({ operationId: 'updateConversation' })
   @ApiParam({ name: 'id', type: 'string' })
-  @ApiOkResponse({ type: Conversation })
+  @ApiOkResponse({ description: 'Updated conversation' })
   async updateConversation(
     @Param('id') id: string,
     @Body() updateData: { title?: string }
-  ): Promise<Conversation> {
+  ) {
     return this.chatService.updateConversation(id, updateData);
   }
 
   @Post('messages')
   @ApiOperation({ operationId: 'sendMessage' })
   @ApiCreatedResponse({ 
-    description: 'Message sent and response generated',
-    schema: {
-      type: 'object',
-      properties: {
-        userMessage: { $ref: '#/components/schemas/Message' },
-        assistantMessage: { $ref: '#/components/schemas/Message' }
-      }
-    }
+    description: 'Message sent and response generated'
   })
-  async sendMessage(@Body() dto: SendMessageDto): Promise<{ userMessage: Message; assistantMessage: Message }> {
+  async sendMessage(@Body() dto: SendMessageDto) {
     return this.chatService.sendMessage(dto);
   }
 

@@ -1,8 +1,18 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { SapSecret, SecretType } from '../entities/sap-secret.entity';
+import { Injectable, Logger, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
+import { eq, desc } from 'drizzle-orm';
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { DATABASE_CONNECTION } from '../../database/database.module';
+import * as schema from '../../database/schema';
 import * as crypto from 'crypto';
+
+// Re-export SecretType for compatibility
+export enum SecretType {
+  PASSWORD = 'password',
+  API_KEY = 'api_key',
+  TOKEN = 'token',
+  CERTIFICATE = 'certificate',
+  OTHER = 'other',
+}
 
 @Injectable()
 export class SecretService {
@@ -11,8 +21,8 @@ export class SecretService {
   private readonly ALGORITHM = 'aes-256-gcm';
 
   constructor(
-    @InjectRepository(SapSecret)
-    private secretRepository: Repository<SapSecret>,
+    @Inject(DATABASE_CONNECTION)
+    private readonly db: PostgresJsDatabase<typeof schema>,
   ) {}
 
   /**
@@ -74,31 +84,36 @@ export class SecretService {
     description?: string,
     expiresAt?: Date,
     createdBy?: string
-  ): Promise<SapSecret> {
+  ) {
     try {
       // Check if secret with same name already exists
-      const existingSecret = await this.secretRepository.findOne({ where: { name } });
+      const existingSecret = await this.db.query.sapSecrets.findFirst({
+        where: eq(schema.sapSecrets.name, name),
+      });
+      
       if (existingSecret) {
         throw new BadRequestException(`Secret with name '${name}' already exists`);
       }
 
       const encryptedValue = this.encrypt(value);
 
-      const secret = this.secretRepository.create({
-        name,
-        type,
-        encryptedValue,
-        description,
-        expiresAt,
-        createdBy,
-        isActive: true,
-        accessCount: 0
-      });
+      const [secret] = await this.db
+        .insert(schema.sapSecrets)
+        .values({
+          name,
+          type: type as any,
+          encryptedValue,
+          description: description ?? null,
+          expiresAt: expiresAt ?? null,
+          createdBy: createdBy ?? null,
+          isActive: true,
+          accessCount: 0,
+        })
+        .returning();
 
-      const savedSecret = await this.secretRepository.save(secret);
       this.logger.log(`Created secret: ${name}`);
       
-      return savedSecret;
+      return secret;
     } catch (error) {
       this.logger.error(`Failed to create secret '${name}':`, error);
       throw error;
@@ -108,11 +123,13 @@ export class SecretService {
   /**
    * Get a secret by ID (returns decrypted value)
    */
-  async getSecretById(id: string): Promise<{ secret: SapSecret; value: string }> {
+  async getSecretById(id: string): Promise<{ secret: any; value: string }> {
     try {
-      const secret = await this.secretRepository.findOne({ where: { id, isActive: true } });
+      const secret = await this.db.query.sapSecrets.findFirst({
+        where: eq(schema.sapSecrets.id, id),
+      });
       
-      if (!secret) {
+      if (!secret || !secret.isActive) {
         throw new NotFoundException(`Secret with ID '${id}' not found`);
       }
 
@@ -124,10 +141,13 @@ export class SecretService {
       const decryptedValue = this.decrypt(secret.encryptedValue);
 
       // Update access tracking
-      await this.secretRepository.update(id, {
-        lastAccessedAt: new Date(),
-        accessCount: secret.accessCount + 1
-      });
+      await this.db
+        .update(schema.sapSecrets)
+        .set({
+          lastAccessedAt: new Date(),
+          accessCount: secret.accessCount + 1,
+        })
+        .where(eq(schema.sapSecrets.id, id));
 
       return { secret, value: decryptedValue };
     } catch (error) {
@@ -139,11 +159,13 @@ export class SecretService {
   /**
    * Get a secret by name (returns decrypted value)
    */
-  async getSecretByName(name: string): Promise<{ secret: SapSecret; value: string }> {
+  async getSecretByName(name: string): Promise<{ secret: any; value: string }> {
     try {
-      const secret = await this.secretRepository.findOne({ where: { name, isActive: true } });
+      const secret = await this.db.query.sapSecrets.findFirst({
+        where: eq(schema.sapSecrets.name, name),
+      });
       
-      if (!secret) {
+      if (!secret || !secret.isActive) {
         throw new NotFoundException(`Secret with name '${name}' not found`);
       }
 
@@ -163,17 +185,18 @@ export class SecretService {
     description?: string,
     expiresAt?: Date,
     updatedBy?: string
-  ): Promise<SapSecret> {
+  ) {
     try {
-      const secret = await this.secretRepository.findOne({ where: { id } });
+      const secret = await this.db.query.sapSecrets.findFirst({
+        where: eq(schema.sapSecrets.id, id),
+      });
       
       if (!secret) {
         throw new NotFoundException(`Secret with ID '${id}' not found`);
       }
 
-      const updateData: Partial<SapSecret> = {
-        updatedBy,
-        updatedAt: new Date()
+      const updateData: Partial<typeof schema.sapSecrets.$inferInsert> = {
+        updatedBy: updatedBy ?? null,
       };
 
       if (value !== undefined) {
@@ -188,12 +211,15 @@ export class SecretService {
         updateData.expiresAt = expiresAt;
       }
 
-      await this.secretRepository.update(id, updateData);
+      const [updatedSecret] = await this.db
+        .update(schema.sapSecrets)
+        .set(updateData)
+        .where(eq(schema.sapSecrets.id, id))
+        .returning();
       
-      const updatedSecret = await this.secretRepository.findOne({ where: { id } });
       this.logger.log(`Updated secret: ${secret.name}`);
       
-      return updatedSecret!;
+      return updatedSecret;
     } catch (error) {
       this.logger.error(`Failed to update secret '${id}':`, error);
       throw error;
@@ -205,13 +231,19 @@ export class SecretService {
    */
   async deleteSecret(id: string): Promise<void> {
     try {
-      const secret = await this.secretRepository.findOne({ where: { id } });
+      const secret = await this.db.query.sapSecrets.findFirst({
+        where: eq(schema.sapSecrets.id, id),
+      });
       
       if (!secret) {
         throw new NotFoundException(`Secret with ID '${id}' not found`);
       }
 
-      await this.secretRepository.update(id, { isActive: false });
+      await this.db
+        .update(schema.sapSecrets)
+        .set({ isActive: false })
+        .where(eq(schema.sapSecrets.id, id));
+      
       this.logger.log(`Deleted secret: ${secret.name}`);
     } catch (error) {
       this.logger.error(`Failed to delete secret '${id}':`, error);
@@ -222,11 +254,11 @@ export class SecretService {
   /**
    * List all active secrets (without decrypted values)
    */
-  async listSecrets(): Promise<SapSecret[]> {
+  async listSecrets() {
     try {
-      return await this.secretRepository.find({
-        where: { isActive: true },
-        order: { createdAt: 'DESC' }
+      return await this.db.query.sapSecrets.findMany({
+        where: eq(schema.sapSecrets.isActive, true),
+        orderBy: [desc(schema.sapSecrets.createdAt)],
       });
     } catch (error) {
       this.logger.error('Failed to list secrets:', error);
@@ -239,8 +271,10 @@ export class SecretService {
    */
   async secretExists(name: string): Promise<boolean> {
     try {
-      const count = await this.secretRepository.count({ where: { name, isActive: true } });
-      return count > 0;
+      const secret = await this.db.query.sapSecrets.findFirst({
+        where: eq(schema.sapSecrets.name, name),
+      });
+      return !!secret && secret.isActive;
     } catch (error) {
       this.logger.error(`Failed to check if secret exists '${name}':`, error);
       return false;

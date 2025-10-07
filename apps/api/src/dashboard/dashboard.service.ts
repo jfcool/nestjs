@@ -1,26 +1,25 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { User } from '../users/user.entity';
-import { Conversation } from '../chat/entities/conversation.entity';
-import { Connection } from '../sap/entities/sap-connection.entity';
+import { Injectable, Inject } from '@nestjs/common';
+import { count } from 'drizzle-orm';
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { DATABASE_CONNECTION } from '../database/database.module';
+import * as schema from '../database/schema';
 
 @Injectable()
 export class DashboardService {
   constructor(
-    @InjectRepository(User)
-    private userRepository: Repository<User>,
-    @InjectRepository(Conversation)
-    private conversationRepository: Repository<Conversation>,
-    @InjectRepository(Connection)
-    private sapConnectionRepository: Repository<Connection>,
+    @Inject(DATABASE_CONNECTION)
+    private readonly db: PostgresJsDatabase<typeof schema>,
   ) {}
 
   async getDashboardStats() {
-    // Get real data from database
-    const totalUsers = await this.userRepository.count();
-    const totalConversations = await this.conversationRepository.count();
-    const totalSapConnections = await this.sapConnectionRepository.count();
+    // Get real data from database using Drizzle count queries
+    const [usersCount] = await this.db.select({ count: count() }).from(schema.users);
+    const [conversationsCount] = await this.db.select({ count: count() }).from(schema.conversations);
+    const [connectionsCount] = await this.db.select({ count: count() }).from(schema.connections);
+    
+    const totalUsers = usersCount.count;
+    const totalConversations = conversationsCount.count;
+    const totalSapConnections = connectionsCount.count;
 
     // Calculate applications count based on available modules
     const availableApplications = 3; // Dashboard, Users, SAP OData, Chat AI, Permissions

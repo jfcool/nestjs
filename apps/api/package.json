@@ -6,14 +6,20 @@
     "debug": "pnpm exec nest start --debug --watch",
     "debug:brk": "pnpm exec nest start --debug-brk --watch",
     "build": "nest build",
-    "start": "node dist/main.js"
+    "start": "node dist/main.js",
+    "db:generate": "drizzle-kit generate --config=drizzle.config.js",
+    "db:migrate": "pnpm exec tsx src/database/migrate.ts",
+    "db:push": "drizzle-kit push --config=drizzle.config.js",
+    "db:studio": "drizzle-kit studio --config=drizzle.config.js"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.10",
     "@types/node": "^24.3.1",
     "@types/pg": "^8.15.5",
+    "drizzle-kit": "^0.28.1",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
+    "tsx": "^4.7.0",
     "typescript": "^5.9.2"
   },
   "dependencies": {
@@ -26,7 +32,6 @@
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.1.6",
     "@nestjs/swagger": "^11.2.0",
-    "@nestjs/typeorm": "^11.0.0",
     "@sap-cloud-sdk/connectivity": "^4.1.1",
     "@sap-cloud-sdk/http-client": "^4.1.1",
     "@sap/xsenv": "^6.0.0",
@@ -39,6 +44,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
     "dotenv": "^17.2.2",
+    "drizzle-orm": "^0.36.4",
     "mammoth": "^1.11.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
@@ -46,9 +52,9 @@
     "pdf-parse": "^1.1.1",
     "pg": "^8.16.3",
     "pgvector": "^0.2.1",
+    "postgres": "^3.4.5",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
-    "swagger-ui-express": "^5.0.1",
-    "typeorm": "^0.3.26"
+    "swagger-ui-express": "^5.0.1"
   }
 }

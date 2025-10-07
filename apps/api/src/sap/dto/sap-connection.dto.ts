@@ -1,5 +1,5 @@
 import { IsString, IsOptional, IsNumber, IsBoolean, IsEnum } from 'class-validator';
-import { ConnectionType } from '../entities/sap-connection.entity';
+import { connectionTypeEnum } from '../../database/schema/enums';
 
 export class SapConnectionDto {
   @IsOptional()
@@ -7,8 +7,8 @@ export class SapConnectionDto {
   connectionString?: string;
 
   @IsOptional()
-  @IsEnum(ConnectionType)
-  type?: ConnectionType;
+  @IsEnum(connectionTypeEnum.enumValues)
+  type?: typeof connectionTypeEnum.enumValues[number];
 
   @IsOptional()
   @IsString()

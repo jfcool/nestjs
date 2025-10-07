@@ -1,8 +1,8 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Conversation } from './entities/conversation.entity';
-import { Message, MessageRole } from './entities/message.entity';
+import { Injectable, Logger, NotFoundException, Inject } from '@nestjs/common';
+import { eq, desc, asc } from 'drizzle-orm';
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { DATABASE_CONNECTION } from '../database/database.module';
+import * as schema from '../database/schema';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { McpService, McpToolCall } from './services/mcp.service';
@@ -11,15 +11,20 @@ import { SemanticMcpService } from './services/semantic-mcp.service';
 import { AIModelService, ChatMessage } from './services/ai-model.service';
 import { DocumentRetrievalService } from '../documents/services/document-retrieval.service';
 
+// Re-export MessageRole enum for compatibility
+export enum MessageRole {
+  USER = 'user',
+  ASSISTANT = 'assistant',
+  SYSTEM = 'system',
+}
+
 @Injectable()
 export class ChatService {
   private readonly logger = new Logger(ChatService.name);
 
   constructor(
-    @InjectRepository(Conversation)
-    private conversationRepository: Repository<Conversation>,
-    @InjectRepository(Message)
-    private messageRepository: Repository<Message>,
+    @Inject(DATABASE_CONNECTION)
+    private readonly db: PostgresJsDatabase<typeof schema>,
     private mcpService: McpService,
     private proactiveMcpService: ProactiveMcpService,
     private semanticMcpService: SemanticMcpService,
@@ -27,29 +32,39 @@ export class ChatService {
     private documentRetrievalService: DocumentRetrievalService,
   ) {}
 
-  async createConversation(dto: CreateConversationDto): Promise<Conversation> {
-    const conversation = this.conversationRepository.create({
-      title: dto.title,
-      model: dto.model || 'gpt-4',
-      systemPrompt: dto.systemPrompt,
-      mcpServers: dto.mcpServers || [],
-    });
+  async createConversation(dto: CreateConversationDto) {
+    const [conversation] = await this.db
+      .insert(schema.conversations)
+      .values({
+        title: dto.title,
+        model: dto.model || 'gpt-4',
+        systemPrompt: dto.systemPrompt ?? null,
+        mcpServers: dto.mcpServers || [],
+      })
+      .returning();
 
-    return this.conversationRepository.save(conversation);
+    return conversation;
   }
 
-  async getConversations(): Promise<Conversation[]> {
-    return this.conversationRepository.find({
-      relations: ['messages'],
-      order: { createdAt: 'DESC' },
+  async getConversations() {
+    return await this.db.query.conversations.findMany({
+      orderBy: [desc(schema.conversations.createdAt)],
+      with: {
+        messages: {
+          orderBy: [asc(schema.messages.createdAt)],
+        },
+      },
     });
   }
 
-  async getConversation(id: string): Promise<Conversation> {
-    const conversation = await this.conversationRepository.findOne({
-      where: { id },
-      relations: ['messages'],
-      order: { messages: { createdAt: 'ASC' } },
+  async getConversation(id: string) {
+    const conversation = await this.db.query.conversations.findFirst({
+      where: eq(schema.conversations.id, id),
+      with: {
+        messages: {
+          orderBy: [asc(schema.messages.createdAt)],
+        },
+      },
     });
 
     if (!conversation) {
@@ -60,14 +75,22 @@ export class ChatService {
   }
 
   async deleteConversation(id: string): Promise<boolean> {
-    const result = await this.conversationRepository.delete(id);
-    return (result.affected ?? 0) > 0;
+    const result = await this.db
+      .delete(schema.conversations)
+      .where(eq(schema.conversations.id, id))
+      .returning();
+    
+    return result.length > 0;
   }
 
-  async updateConversation(id: string, updateData: { title?: string }): Promise<Conversation> {
-    const conversation = await this.conversationRepository.findOne({
-      where: { id },
-      relations: ['messages'],
+  async updateConversation(id: string, updateData: { title?: string }) {
+    const conversation = await this.db.query.conversations.findFirst({
+      where: eq(schema.conversations.id, id),
+      with: {
+        messages: {
+          orderBy: [asc(schema.messages.createdAt)],
+        },
+      },
     });
 
     if (!conversation) {
@@ -75,15 +98,20 @@ export class ChatService {
     }
 
     if (updateData.title !== undefined) {
-      conversation.title = updateData.title;
+      const [updated] = await this.db
+        .update(schema.conversations)
+        .set({ title: updateData.title })
+        .where(eq(schema.conversations.id, id))
+        .returning();
+      
+      return { ...updated, messages: conversation.messages };
     }
 
-    await this.conversationRepository.save(conversation);
     return conversation;
   }
 
-  async sendMessage(dto: SendMessageDto): Promise<{ userMessage: Message; assistantMessage: Message }> {
-    let conversation: Conversation;
+  async sendMessage(dto: SendMessageDto): Promise<{ userMessage: any; assistantMessage: any }> {
+    let conversation: schema.Conversation;
     let isNewConversation = false;
 
     if (dto.conversationId) {
@@ -99,40 +127,46 @@ export class ChatService {
     }
 
     // Save user message
-    const userMessage = this.messageRepository.create({
-      content: dto.content,
-      role: dto.role,
-      conversationId: conversation.id,
-    });
-    await this.messageRepository.save(userMessage);
+    const [userMessage] = await this.db
+      .insert(schema.messages)
+      .values({
+        content: dto.content,
+        role: dto.role as any,
+        conversationId: conversation.id,
+      })
+      .returning();
 
     // Generate assistant response
     const assistantResponse = await this.generateResponse(conversation, dto);
 
     // Save assistant message
-    const assistantMessage = this.messageRepository.create({
-      content: assistantResponse.content,
-      role: MessageRole.ASSISTANT,
-      conversationId: conversation.id,
-      mcpToolCalls: assistantResponse.mcpToolCalls,
-    });
-    await this.messageRepository.save(assistantMessage);
+    const [assistantMessage] = await this.db
+      .insert(schema.messages)
+      .values({
+        content: assistantResponse.content,
+        role: 'assistant' as any,
+        conversationId: conversation.id,
+        mcpToolCalls: assistantResponse.mcpToolCalls ?? null,
+      })
+      .returning();
 
     // Generate smart title for new conversations OR existing conversations that still have the default title
+    const conversationMessages = (conversation as any).messages || [];
     const shouldGenerateTitle = isNewConversation || 
-      (conversation.title === 'New Conversation' && conversation.messages?.length <= 2);
+      (conversation.title === 'New Conversation' && conversationMessages.length <= 2);
     
     if (shouldGenerateTitle) {
       try {
         this.logger.log(`Generating smart title for conversation ${conversation.id} (isNew: ${isNewConversation}, currentTitle: "${conversation.title}")`);
         
         // Get the first user message from the conversation
-        const allMessages = await this.messageRepository.find({
-          where: { conversationId: conversation.id },
-          order: { createdAt: 'ASC' },
-        });
+        const allMessages = await this.db
+          .select()
+          .from(schema.messages)
+          .where(eq(schema.messages.conversationId, conversation.id))
+          .orderBy(asc(schema.messages.createdAt));
         
-        const firstUserMessage = allMessages.find(msg => msg.role === MessageRole.USER);
+        const firstUserMessage = allMessages.find(msg => msg.role === 'user');
         const firstUserContent = firstUserMessage ? firstUserMessage.content : dto.content;
         
         this.logger.log(`Using first user message for title generation: "${firstUserContent.substring(0, 50)}..."`);
@@ -153,15 +187,16 @@ export class ChatService {
   }
 
   private async generateResponse(
-    conversation: Conversation,
+    conversation: schema.Conversation,
     dto: SendMessageDto,
   ): Promise<{ content: string; mcpToolCalls?: any[] }> {
     try {
       // Get conversation history
-      const messages = await this.messageRepository.find({
-        where: { conversationId: conversation.id },
-        order: { createdAt: 'ASC' },
-      });
+      const messages = await this.db
+        .select()
+        .from(schema.messages)
+        .where(eq(schema.messages.conversationId, conversation.id))
+        .orderBy(asc(schema.messages.createdAt));
 
       // Convert to ChatMessage format for AI model
       const chatMessages: ChatMessage[] = [];
@@ -185,13 +220,14 @@ export class ChatService {
 
       // Handle MCP tools proactively if enabled
       let mcpToolCalls: any[] = [];
-      if (dto.useMcp && conversation.mcpServers?.length > 0) {
+      const mcpServers = conversation.mcpServers || [];
+      if (dto.useMcp && mcpServers.length > 0) {
         // Get available (enabled) servers
         const availableServers = await this.mcpService.getAvailableServers();
         const enabledServerNames = availableServers.map(server => server.name);
         
         // Only use servers that are both in the conversation AND currently enabled
-        const activeServers = conversation.mcpServers.filter(serverName => 
+        const activeServers = mcpServers.filter(serverName => 
           enabledServerNames.includes(serverName)
         );
 

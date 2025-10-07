@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "mcp-abap-abap-adt-api": {
-      "command": "/Users/joe/.nvs/default/bin/node",
-      "args": ["/Users/joe/src/mcp-abap-abap-adt-api/dist/index.js"],
+      "command": "node",
+      "args": ["C:/Users/joe/src/mcp-abap-abap-adt-api/dist/index.js"],
       "env": {
         "SAP_URL": "https://54.81.18.66:44300",
         "SAP_USER": "EVEREST",
@@ -21,8 +21,8 @@
       ]
     },
     "agentdb": {
-      "command": "/Users/joe/.nvs/default/bin/node",
-      "args": ["/Users/joe/agentdb-mcp-bridge/agentdb-sdk-mcp-server.js"],
+      "command": "node",
+      "args": ["C:/Users/joe/agentdb-mcp-bridge/agentdb-sdk-mcp-server.js"],
       "env": {
         "AGENTDB_API_KEY": "agentdb_9c15b612b647ad978c1de0bcf49ec6587fd108a1bc51703d0eaea611dfc39fca",
         "AGENTDB_TOKEN": "acd22c69-e92c-44e2-92b4-720b8f70426e",
@@ -45,8 +45,8 @@
       ]
     },
     "document-retrieval": {
-      "command": "/Users/joe/.nvs/default/bin/node",
-      "args": ["/Users/joe/src/nestjs/mcp-document-retrieval/dist/index.js"],
+      "command": "node",
+      "args": ["C:/src/jfcool/nestjs/mcp-document-retrieval/dist/index.js"],
       "env": {
         "API_BASE_URL": "http://localhost:3001"
       },

@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { DocumentEntity } from '../entities/document.entity';
+import { Injectable, Logger, Inject } from '@nestjs/common';
+import { eq, desc } from 'drizzle-orm';
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { DATABASE_CONNECTION } from '../../database/database.module';
+import * as schema from '../../database/schema';
 import { EmbeddingService } from './embedding.service';
 
 export interface DocumentClassification {
@@ -19,12 +20,12 @@ export class DocumentClassificationService {
   private readonly logger = new Logger(DocumentClassificationService.name);
 
   constructor(
-    @InjectRepository(DocumentEntity)
-    private readonly documentRepository: Repository<DocumentEntity>,
+    @Inject(DATABASE_CONNECTION)
+    private readonly db: PostgresJsDatabase<typeof schema>,
     private readonly embeddingService: EmbeddingService,
   ) {}
 
-  async classifyDocument(document: DocumentEntity, content: string): Promise<DocumentClassification> {
+  async classifyDocument(document: any, content: string): Promise<DocumentClassification> {
     this.logger.log(`Classifying document: ${document.path}`);
 
     try {
@@ -258,7 +259,7 @@ export class DocumentClassificationService {
   }
 
   private calculateImportance(
-    document: DocumentEntity, 
+    document: any, 
     classification: { documentType: string; category: string }, 
     extractedData: Record<string, any>
   ): number {
@@ -312,31 +313,36 @@ export class DocumentClassificationService {
   }
 
   async updateDocumentClassification(documentId: string, classification: DocumentClassification): Promise<void> {
-    await this.documentRepository.update(documentId, {
-      documentType: classification.documentType,
-      category: classification.category,
-      language: classification.language,
-      summary: classification.summary,
-      keywords: classification.keywords,
-      extractedData: classification.extractedData,
-      importance: classification.importance,
-    });
+    await this.db
+      .update(schema.documents)
+      .set({
+        documentType: classification.documentType,
+        category: classification.category,
+        language: classification.language,
+        summary: classification.summary,
+        keywords: classification.keywords,
+        extractedData: classification.extractedData,
+        importance: classification.importance,
+      })
+      .where(eq(schema.documents.id, documentId));
 
     this.logger.log(`Updated classification for document ${documentId}`);
   }
 
-  async getDocumentsByType(documentType: string): Promise<DocumentEntity[]> {
-    return this.documentRepository.find({
-      where: { documentType },
-      order: { importance: 'DESC', createdAt: 'DESC' },
-    });
+  async getDocumentsByType(documentType: string) {
+    return await this.db
+      .select()
+      .from(schema.documents)
+      .where(eq(schema.documents.documentType, documentType))
+      .orderBy(desc(schema.documents.importance), desc(schema.documents.createdAt));
   }
 
-  async getDocumentsByCategory(category: string): Promise<DocumentEntity[]> {
-    return this.documentRepository.find({
-      where: { category },
-      order: { importance: 'DESC', createdAt: 'DESC' },
-    });
+  async getDocumentsByCategory(category: string) {
+    return await this.db
+      .select()
+      .from(schema.documents)
+      .where(eq(schema.documents.category, category))
+      .orderBy(desc(schema.documents.importance), desc(schema.documents.createdAt));
   }
 
   async getDocumentStats(): Promise<{
@@ -345,7 +351,7 @@ export class DocumentClassificationService {
     byCategory: Record<string, number>;
     byLanguage: Record<string, number>;
   }> {
-    const documents = await this.documentRepository.find();
+    const documents = await this.db.select().from(schema.documents);
     
     const stats = {
       totalDocuments: documents.length,

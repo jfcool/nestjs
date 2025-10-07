@@ -1,10 +1,24 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Connection, ConnectionType } from '../entities/sap-connection.entity';
+import { Injectable, Logger, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
+import { eq, desc } from 'drizzle-orm';
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { DATABASE_CONNECTION } from '../../database/database.module';
+import * as schema from '../../database/schema';
 import { SecretService } from './secret.service';
-import { SecretType } from '../entities/sap-secret.entity';
 import { SapConnectionDto } from '../dto/sap-connection.dto';
+
+// Re-export ConnectionType for compatibility
+export enum ConnectionType {
+  SAP = 'sap',
+  AGENTDB = 'agentdb',
+}
+
+export enum SecretType {
+  PASSWORD = 'password',
+  API_KEY = 'api_key',
+  TOKEN = 'token',
+  CERTIFICATE = 'certificate',
+  OTHER = 'other',
+}
 
 export interface CreateConnectionDto {
   name: string;
@@ -29,19 +43,19 @@ export class ConnectionService {
   private readonly logger = new Logger(ConnectionService.name);
 
   constructor(
-    @InjectRepository(Connection)
-    private connectionRepository: Repository<Connection>,
+    @Inject(DATABASE_CONNECTION)
+    private readonly db: PostgresJsDatabase<typeof schema>,
     private secretService: SecretService,
   ) {}
 
   /**
    * Create a new connection
    */
-  async createConnection(dto: CreateConnectionDto): Promise<Connection> {
+  async createConnection(dto: CreateConnectionDto) {
     try {
       // Check if connection with same name already exists
-      const existingConnection = await this.connectionRepository.findOne({ 
-        where: { name: dto.name } 
+      const existingConnection = await this.db.query.connections.findFirst({
+        where: eq(schema.connections.name, dto.name),
       });
       
       if (existingConnection) {
@@ -67,20 +81,22 @@ export class ConnectionService {
       }
 
       // Create connection
-      const connection = this.connectionRepository.create({
-        name: dto.name,
-        type: dto.type,
-        description: dto.description,
-        parameters: processedParameters,
-        cacheConnectionId: dto.cacheConnectionId,
-        isActive: true,
-        createdBy: dto.createdBy
-      });
+      const [connection] = await this.db
+        .insert(schema.connections)
+        .values({
+          name: dto.name,
+          type: dto.type as any,
+          description: dto.description ?? null,
+          parameters: processedParameters,
+          cacheConnectionId: dto.cacheConnectionId ?? null,
+          isActive: true,
+          createdBy: dto.createdBy ?? null,
+        })
+        .returning();
 
-      const savedConnection = await this.connectionRepository.save(connection);
       this.logger.log(`Created connection: ${dto.name} (${dto.type})`);
       
-      return savedConnection;
+      return connection;
     } catch (error) {
       this.logger.error(`Failed to create connection '${dto.name}':`, error);
       throw error;
@@ -90,19 +106,19 @@ export class ConnectionService {
   /**
    * Get connection by ID with decrypted password
    */
-  async getConnectionById(id: string): Promise<{ connection: Connection; password?: string }> {
+  async getConnectionById(id: string): Promise<{ connection: any; password?: string }> {
     try {
-      const connection = await this.connectionRepository.findOne({ 
-        where: { id, isActive: true } 
+      const connection = await this.db.query.connections.findFirst({
+        where: eq(schema.connections.id, id),
       });
       
-      if (!connection) {
+      if (!connection || !connection.isActive) {
         throw new NotFoundException(`Connection with ID '${id}' not found`);
       }
 
       let password: string | undefined;
-      if (connection.parameters.passwordSecretId) {
-        const { value } = await this.secretService.getSecretById(connection.parameters.passwordSecretId);
+      if ((connection.parameters as any).passwordSecretId) {
+        const { value } = await this.secretService.getSecretById((connection.parameters as any).passwordSecretId);
         password = value;
       }
 
@@ -116,13 +132,13 @@ export class ConnectionService {
   /**
    * Get connection by name with decrypted password
    */
-  async getConnectionByName(name: string): Promise<{ connection: Connection; password?: string }> {
+  async getConnectionByName(name: string): Promise<{ connection: any; password?: string }> {
     try {
-      const connection = await this.connectionRepository.findOne({ 
-        where: { name, isActive: true } 
+      const connection = await this.db.query.connections.findFirst({
+        where: eq(schema.connections.name, name),
       });
       
-      if (!connection) {
+      if (!connection || !connection.isActive) {
         throw new NotFoundException(`Connection with name '${name}' not found`);
       }
 
@@ -175,21 +191,23 @@ export class ConnectionService {
   /**
    * Update a connection
    */
-  async updateConnection(id: string, dto: UpdateConnectionDto): Promise<Connection> {
+  async updateConnection(id: string, dto: UpdateConnectionDto) {
     try {
-      const connection = await this.connectionRepository.findOne({ where: { id } });
+      const connection = await this.db.query.connections.findFirst({
+        where: eq(schema.connections.id, id),
+      });
       
       if (!connection) {
         throw new NotFoundException(`Connection with ID '${id}' not found`);
       }
 
       // Handle password update if provided
-      let processedParameters = { ...connection.parameters };
+      let processedParameters = { ...(connection.parameters as any) };
       if (dto.parameters?.password) {
-        if (connection.parameters.passwordSecretId) {
+        if ((connection.parameters as any).passwordSecretId) {
           // Update existing secret
           await this.secretService.updateSecret(
-            connection.parameters.passwordSecretId,
+            (connection.parameters as any).passwordSecretId,
             dto.parameters.password,
             undefined,
             undefined,
@@ -218,8 +236,8 @@ export class ConnectionService {
 
       // Check for name conflicts if name is being changed
       if (dto.name && dto.name !== connection.name) {
-        const existingConnection = await this.connectionRepository.findOne({ 
-          where: { name: dto.name } 
+        const existingConnection = await this.db.query.connections.findFirst({
+          where: eq(schema.connections.name, dto.name),
         });
         
         if (existingConnection) {
@@ -227,24 +245,24 @@ export class ConnectionService {
         }
       }
 
-      // Update connection
-      const updateData: Partial<Connection> = {
-        updatedBy: dto.updatedBy,
-        updatedAt: new Date()
-      };
-
+      // Build update data
+      const updateData: Partial<typeof schema.connections.$inferInsert> = {};
       if (dto.name !== undefined) updateData.name = dto.name;
       if (dto.description !== undefined) updateData.description = dto.description;
       if (dto.parameters !== undefined) updateData.parameters = processedParameters;
       if (dto.cacheConnectionId !== undefined) updateData.cacheConnectionId = dto.cacheConnectionId;
       if (dto.isActive !== undefined) updateData.isActive = dto.isActive;
+      if (dto.updatedBy !== undefined) updateData.updatedBy = dto.updatedBy;
 
-      await this.connectionRepository.update(id, updateData);
+      const [updatedConnection] = await this.db
+        .update(schema.connections)
+        .set(updateData)
+        .where(eq(schema.connections.id, id))
+        .returning();
       
-      const updatedConnection = await this.connectionRepository.findOne({ where: { id } });
       this.logger.log(`Updated connection: ${connection.name}`);
       
-      return updatedConnection!;
+      return updatedConnection;
     } catch (error) {
       this.logger.error(`Failed to update connection '${id}':`, error);
       throw error;
@@ -256,18 +274,23 @@ export class ConnectionService {
    */
   async deleteConnection(id: string): Promise<void> {
     try {
-      const connection = await this.connectionRepository.findOne({ where: { id } });
+      const connection = await this.db.query.connections.findFirst({
+        where: eq(schema.connections.id, id),
+      });
       
       if (!connection) {
         throw new NotFoundException(`Connection with ID '${id}' not found`);
       }
 
       // Soft delete the connection
-      await this.connectionRepository.update(id, { isActive: false });
+      await this.db
+        .update(schema.connections)
+        .set({ isActive: false })
+        .where(eq(schema.connections.id, id));
       
       // Also deactivate the associated secret if it exists
-      if (connection.parameters.passwordSecretId) {
-        await this.secretService.deleteSecret(connection.parameters.passwordSecretId);
+      if ((connection.parameters as any).passwordSecretId) {
+        await this.secretService.deleteSecret((connection.parameters as any).passwordSecretId);
       }
       
       this.logger.log(`Deleted connection: ${connection.name}`);
@@ -280,11 +303,11 @@ export class ConnectionService {
   /**
    * List all active connections (without passwords)
    */
-  async listConnections(): Promise<Connection[]> {
+  async listConnections() {
     try {
-      return await this.connectionRepository.find({
-        where: { isActive: true },
-        order: { createdAt: 'DESC' }
+      return await this.db.query.connections.findMany({
+        where: eq(schema.connections.isActive, true),
+        orderBy: [desc(schema.connections.createdAt)],
       });
     } catch (error) {
       this.logger.error('Failed to list connections:', error);
@@ -295,12 +318,15 @@ export class ConnectionService {
   /**
    * List connections by type
    */
-  async listConnectionsByType(type: ConnectionType): Promise<Connection[]> {
+  async listConnectionsByType(type: ConnectionType) {
     try {
-      return await this.connectionRepository.find({
-        where: { type, isActive: true },
-        order: { createdAt: 'DESC' }
-      });
+      const results = await this.db
+        .select()
+        .from(schema.connections)
+        .where(eq(schema.connections.type, type as any))
+        .orderBy(desc(schema.connections.createdAt));
+      
+      return results.filter(c => c.isActive);
     } catch (error) {
       this.logger.error(`Failed to list connections of type '${type}':`, error);
       throw error;
@@ -312,10 +338,10 @@ export class ConnectionService {
    */
   async connectionExists(name: string): Promise<boolean> {
     try {
-      const count = await this.connectionRepository.count({ 
-        where: { name, isActive: true } 
+      const connection = await this.db.query.connections.findFirst({
+        where: eq(schema.connections.name, name),
       });
-      return count > 0;
+      return !!connection && connection.isActive;
     } catch (error) {
       this.logger.error(`Failed to check if connection exists '${name}':`, error);
       return false;

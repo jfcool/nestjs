@@ -1,12 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Injectable, Logger, Inject } from '@nestjs/common';
+import { eq, sql, count, desc } from 'drizzle-orm';
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { DATABASE_CONNECTION } from '../../database/database.module';
+import * as schema from '../../database/schema';
 import { ConfigService } from '@nestjs/config';
 import * as chokidar from 'chokidar';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { DocumentEntity } from '../entities/document.entity';
-import { ChunkEntity } from '../entities/chunk.entity';
 import { EmbeddingService } from './embedding.service';
 import { DocumentParserService } from './document-parser.service';
 import { UsersService } from '../../users/users.service';
@@ -20,11 +20,8 @@ export class DocumentIndexingService {
   private readonly chunkOverlap: number;
 
   constructor(
-    @InjectRepository(DocumentEntity)
-    private readonly documentRepository: Repository<DocumentEntity>,
-    @InjectRepository(ChunkEntity)
-    private readonly chunkRepository: Repository<ChunkEntity>,
-    private readonly dataSource: DataSource,
+    @Inject(DATABASE_CONNECTION)
+    private readonly db: PostgresJsDatabase<typeof schema>,
     private readonly embeddingService: EmbeddingService,
     private readonly parserService: DocumentParserService,
     private readonly usersService: UsersService,
@@ -36,8 +33,12 @@ export class DocumentIndexingService {
   }
 
   async onModuleInit() {
-    // Start watching for file changes
-    await this.startWatching();
+    // Wait a bit for database to be fully ready
+    setTimeout(() => {
+      this.startWatching().catch(err => 
+        this.logger.error(`Failed to start file watcher: ${err.message}`)
+      );
+    }, 2000);
   }
 
   async onModuleDestroy() {
@@ -70,12 +71,20 @@ export class DocumentIndexingService {
 
   private async handleFileAdd(filePath: string) {
     this.logger.log(`File added: ${filePath}`);
-    await this.indexDocument(filePath);
+    try {
+      await this.indexDocument(filePath);
+    } catch (error) {
+      this.logger.error(`Failed to index ${filePath}: ${error.message}`);
+    }
   }
 
   private async handleFileChange(filePath: string) {
     this.logger.log(`File changed: ${filePath}`);
-    await this.indexDocument(filePath);
+    try {
+      await this.indexDocument(filePath);
+    } catch (error) {
+      this.logger.error(`Failed to index ${filePath}: ${error.message}`);
+    }
   }
 
   private async handleFileDelete(filePath: string) {
@@ -83,7 +92,7 @@ export class DocumentIndexingService {
     await this.removeDocument(filePath);
   }
 
-  async indexDocument(filePath: string): Promise<DocumentEntity | null> {
+  async indexDocument(filePath: string): Promise<any | null> {
     try {
       // Check if file type is supported
       if (!this.parserService.isSupported(filePath)) {
@@ -95,8 +104,8 @@ export class DocumentIndexingService {
       const fileInfo = await this.parserService.getFileInfo(filePath);
 
       // Check if document already exists and is up to date
-      const existingDoc = await this.documentRepository.findOne({
-        where: { path: filePath },
+      const existingDoc = await this.db.query.documents.findFirst({
+        where: eq(schema.documents.path, filePath),
       });
 
       if (existingDoc && existingDoc.sha256 === fileInfo.sha256) {
@@ -107,21 +116,40 @@ export class DocumentIndexingService {
       // Parse document
       const parsed = await this.parserService.parseDocument(filePath);
 
-      // Create or update document entity
-      const document = existingDoc || new DocumentEntity();
-      document.path = filePath;
-      document.mtime = fileInfo.mtime;
-      document.sha256 = fileInfo.sha256;
-      document.title = parsed.title || path.basename(filePath);
-      document.fileType = fileInfo.fileType;
-      document.fileSize = fileInfo.size;
-      document.meta = parsed.metadata || {};
-
-      const savedDocument = await this.documentRepository.save(document);
-
-      // Remove existing chunks if updating
+      let savedDocument;
       if (existingDoc) {
-        await this.chunkRepository.delete({ document_id: existingDoc.id });
+        // Update existing document
+        [savedDocument] = await this.db
+          .update(schema.documents)
+          .set({
+            mtime: fileInfo.mtime,
+            sha256: fileInfo.sha256,
+            title: parsed.title || path.basename(filePath),
+            fileType: fileInfo.fileType,
+            fileSize: fileInfo.size,
+            meta: parsed.metadata || {},
+          })
+          .where(eq(schema.documents.id, existingDoc.id))
+          .returning();
+
+        // Remove existing chunks if updating
+        await this.db
+          .delete(schema.chunks)
+          .where(eq(schema.chunks.document_id, existingDoc.id));
+      } else {
+        // Create new document
+        [savedDocument] = await this.db
+          .insert(schema.documents)
+          .values({
+            path: filePath,
+            mtime: fileInfo.mtime,
+            sha256: fileInfo.sha256,
+            title: parsed.title || path.basename(filePath),
+            fileType: fileInfo.fileType,
+            fileSize: fileInfo.size,
+            meta: parsed.metadata || {},
+          })
+          .returning();
       }
 
       // Chunk the text
@@ -137,44 +165,72 @@ export class DocumentIndexingService {
       }
 
       // Generate embeddings for all chunks
-      this.logger.log(`Generating embeddings for ${chunks.length} chunks`);
-      const embeddings = await this.embeddingService.generateEmbeddings(chunks);
+      this.logger.log(`Generating embeddings for ${chunks.length} chunks...`);
+      let embeddings: number[][] = [];
+      let embeddingsGenerated = false;
+      
+      try {
+        embeddings = await this.embeddingService.generateEmbeddings(chunks);
+        embeddingsGenerated = true;
+        this.logger.log(`✅ Successfully generated ${embeddings.length} embeddings`);
+      } catch (error) {
+        this.logger.warn(`⚠️  Failed to generate embeddings: ${error.message}`);
+        this.logger.warn(`   Continuing without embeddings. Chunks will be searchable by text only.`);
+        // Create empty embeddings array
+        embeddings = new Array(chunks.length).fill(null);
+      }
 
       // Create chunk entities
-      const chunkEntities = chunks.map((content, index) => {
-        const chunk = new ChunkEntity();
-        chunk.document_id = savedDocument.id;
-        chunk.chunk_index = index;
-        chunk.content = content;
-        chunk.token_count = this.parserService.countTokens(content);
+      const chunkEntities = chunks.map((content, index) => ({
+        document_id: savedDocument.id,
+        chunk_index: index,
+        content: content,
+        token_count: this.parserService.countTokens(content),
         // Convert number array to string for database storage
-        chunk.embedding = embeddings[index] ? `[${embeddings[index].join(',')}]` : null;
-        return chunk;
-      });
+        embedding: embeddings[index] ? `[${embeddings[index].join(',')}]` : null,
+      }));
 
       // Save chunks in batches using raw SQL for pgvector compatibility
+      this.logger.log(`Saving ${chunkEntities.length} chunks to database...`);
       const batchSize = 50;
+      let savedChunks = 0;
+      
       for (let i = 0; i < chunkEntities.length; i += batchSize) {
         const batch = chunkEntities.slice(i, i + batchSize);
         
         // Use raw SQL to insert chunks with pgvector embeddings
         for (const chunk of batch) {
-          const embeddingVector = chunk.embedding;
-          
-          await this.dataSource.query(`
-            INSERT INTO chunks (id, document_id, chunk_index, content, token_count, embedding, "createdAt", "updatedAt")
-            VALUES (gen_random_uuid(), $1, $2, $3, $4, $5::vector, NOW(), NOW())
-          `, [
-            chunk.document_id,
-            chunk.chunk_index,
-            chunk.content,
-            chunk.token_count,
-            embeddingVector
-          ]);
+          try {
+            const embeddingVector = chunk.embedding;
+            
+            await this.db.execute(sql`
+              INSERT INTO chunks (id, document_id, chunk_index, content, token_count, embedding, "createdAt", "updatedAt")
+              VALUES (gen_random_uuid(), ${chunk.document_id}, ${chunk.chunk_index}, ${chunk.content}, ${chunk.token_count}, ${embeddingVector}::vector, NOW(), NOW())
+            `);
+            savedChunks++;
+          } catch (error) {
+            this.logger.error(`Failed to save chunk ${chunk.chunk_index}: ${error.message}`);
+            // Try saving without embedding
+            try {
+              await this.db.execute(sql`
+                INSERT INTO chunks (id, document_id, chunk_index, content, token_count, embedding, "createdAt", "updatedAt")
+                VALUES (gen_random_uuid(), ${chunk.document_id}, ${chunk.chunk_index}, ${chunk.content}, ${chunk.token_count}, NULL, NOW(), NOW())
+              `);
+              savedChunks++;
+              this.logger.warn(`  Saved chunk ${chunk.chunk_index} without embedding`);
+            } catch (fallbackError) {
+              this.logger.error(`  Failed to save chunk ${chunk.chunk_index} even without embedding: ${fallbackError.message}`);
+            }
+          }
         }
       }
 
-      this.logger.log(`Successfully indexed document: ${filePath} with ${chunks.length} chunks`);
+      const status = embeddingsGenerated ? '✅' : '⚠️';
+      this.logger.log(`${status} Successfully indexed document: ${filePath}`);
+      this.logger.log(`   - Saved ${savedChunks}/${chunks.length} chunks`);
+      if (!embeddingsGenerated) {
+        this.logger.warn(`   - ⚠️  No embeddings generated (embedding service unavailable)`);
+      }
       return savedDocument;
     } catch (error) {
       this.logger.error(`Failed to index document ${filePath}: ${error.message}`);
@@ -184,13 +240,15 @@ export class DocumentIndexingService {
 
   async removeDocument(filePath: string): Promise<void> {
     try {
-      const document = await this.documentRepository.findOne({
-        where: { path: filePath },
+      const document = await this.db.query.documents.findFirst({
+        where: eq(schema.documents.path, filePath),
       });
 
       if (document) {
         // Chunks will be deleted automatically due to CASCADE
-        await this.documentRepository.remove(document);
+        await this.db
+          .delete(schema.documents)
+          .where(eq(schema.documents.id, document.id));
         this.logger.log(`Removed document: ${filePath}`);
       }
     } catch (error) {
@@ -246,29 +304,41 @@ export class DocumentIndexingService {
     return files;
   }
 
-  async getDocuments(limit: number = 50, offset: number = 0): Promise<DocumentEntity[]> {
-    const documents = await this.documentRepository.find({
-      take: limit,
-      skip: offset,
-      order: { updatedAt: 'DESC' },
+  async getDocuments(limit: number = 50, offset: number = 0) {
+    const documents = await this.db.query.documents.findMany({
+      limit,
+      offset,
+      orderBy: [desc(schema.documents.updatedAt)],
     });
 
     // Add chunk count for each document
     for (const doc of documents) {
-      const chunkCount = await this.chunkRepository.count({
-        where: { document_id: doc.id },
-      });
-      (doc as any).chunkCount = chunkCount;
+      const [result] = await this.db
+        .select({ count: count() })
+        .from(schema.chunks)
+        .where(eq(schema.chunks.document_id, doc.id));
+      (doc as any).chunkCount = result.count;
     }
 
     return documents;
   }
 
-  async getDocumentById(id: string): Promise<DocumentEntity | null> {
-    return this.documentRepository.findOne({
-      where: { id },
-      relations: ['chunks'],
+  async getDocumentById(id: string) {
+    const document = await this.db.query.documents.findFirst({
+      where: eq(schema.documents.id, id),
     });
+
+    if (!document) {
+      return null;
+    }
+
+    // Get chunks separately
+    const chunks = await this.db
+      .select()
+      .from(schema.chunks)
+      .where(eq(schema.chunks.document_id, id));
+
+    return { ...document, chunks };
   }
 
   async getDocumentStats(): Promise<{
@@ -276,20 +346,23 @@ export class DocumentIndexingService {
     totalChunks: number;
     totalSize: number;
   }> {
-    const [totalDocuments, totalChunks] = await Promise.all([
-      this.documentRepository.count(),
-      this.chunkRepository.count(),
-    ]);
+    const [docsResult] = await this.db
+      .select({ count: count() })
+      .from(schema.documents);
+    
+    const [chunksResult] = await this.db
+      .select({ count: count() })
+      .from(schema.chunks);
 
-    const sizeResult = await this.documentRepository
-      .createQueryBuilder('doc')
-      .select('SUM(doc.fileSize)', 'totalSize')
-      .getRawOne();
+    const [sizeResult] = await this.db.execute(sql`
+      SELECT SUM("fileSize")::bigint as total_size
+      FROM documents
+    `);
 
     return {
-      totalDocuments,
-      totalChunks,
-      totalSize: parseInt(sizeResult.totalSize || '0', 10),
+      totalDocuments: docsResult.count,
+      totalChunks: chunksResult.count,
+      totalSize: parseInt((sizeResult as any)?.total_size || '0', 10),
     };
   }
 
@@ -297,8 +370,8 @@ export class DocumentIndexingService {
     this.logger.log('Starting full reindex...');
     
     // Clear existing data
-    await this.chunkRepository.delete({});
-    await this.documentRepository.delete({});
+    await this.db.delete(schema.chunks);
+    await this.db.delete(schema.documents);
     
     // Reindex the watch directory
     await this.indexDirectory(this.watchPath);
@@ -310,17 +383,24 @@ export class DocumentIndexingService {
     this.logger.log('Clearing all documents and chunks from database...');
     
     try {
-      // Use raw SQL to delete all data efficiently
-      const chunkCount = await this.chunkRepository.count();
-      const docCount = await this.documentRepository.count();
+      // Get counts before deletion
+      const [chunksResult] = await this.db
+        .select({ count: count() })
+        .from(schema.chunks);
+      const [docsResult] = await this.db
+        .select({ count: count() })
+        .from(schema.documents);
+      
+      const chunkCount = chunksResult.count;
+      const docCount = docsResult.count;
       
       if (chunkCount > 0 || docCount > 0) {
         // Delete all chunks first (due to foreign key constraints)
-        await this.dataSource.query('DELETE FROM chunks');
+        await this.db.execute(sql`DELETE FROM chunks`);
         this.logger.log(`Deleted ${chunkCount} chunks`);
         
         // Delete all documents
-        await this.dataSource.query('DELETE FROM documents');
+        await this.db.execute(sql`DELETE FROM documents`);
         this.logger.log(`Deleted ${docCount} documents`);
       } else {
         this.logger.log('No documents or chunks to delete');

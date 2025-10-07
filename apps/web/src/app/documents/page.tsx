@@ -52,7 +52,7 @@ export default function DocumentsPage() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [fileTypeFilter, setFileTypeFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'name' | 'date' | 'size'>('date');
-  const [similarityThreshold, setSimilarityThreshold] = useState<number>(0.1); // Default 10%
+  const [similarityThreshold, setSimilarityThreshold] = useState<number>(0.7); // Default 70% for high relevance
 
   // API hooks
   const { data: documents = [], isLoading: documentsLoading, refetch: refetchDocuments } = useGetDocuments();
@@ -596,15 +596,14 @@ export default function DocumentsPage() {
                 <select
                   value={similarityThreshold}
                   onChange={(e) => setSimilarityThreshold(parseFloat(e.target.value))}
-                  className="px-3 py-2 border rounded-md text-sm w-20"
+                  className="px-3 py-2 border rounded-md text-sm w-24"
                 >
-                  <option value={0.05}>5%</option>
-                  <option value={0.1}>10%</option>
-                  <option value={0.15}>15%</option>
-                  <option value={0.2}>20%</option>
-                  <option value={0.3}>30%</option>
                   <option value={0.5}>50%</option>
-                  <option value={0.7}>70%</option>
+                  <option value={0.6}>60%</option>
+                  <option value={0.7}>70% ⭐</option>
+                  <option value={0.8}>80%</option>
+                  <option value={0.9}>90%</option>
+                  <option value={0.95}>95%</option>
                 </select>
               </div>
               <Button 

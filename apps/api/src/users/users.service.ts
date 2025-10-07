@@ -1,19 +1,20 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Injectable, Inject } from '@nestjs/common';
+import { eq } from 'drizzle-orm';
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { DATABASE_CONNECTION } from '../database/database.module';
+import * as schema from '../database/schema';
 import { UserDto } from './user.dto';
 import { CreateUserDto } from './create-user.dto';
-import { User } from './user.entity';
 
 @Injectable()
 export class UsersService {
   constructor(
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
+    @Inject(DATABASE_CONNECTION)
+    private readonly db: PostgresJsDatabase<typeof schema>,
   ) {}
 
   async findAll(): Promise<UserDto[]> {
-    const users = await this.userRepository.find();
+    const users = await this.db.select().from(schema.users);
     return users.map(user => ({
       id: user.id,
       name: user.name,
@@ -22,22 +23,28 @@ export class UsersService {
   }
 
   async create(dto: CreateUserDto): Promise<UserDto> {
-    const user = this.userRepository.create({
-      name: dto.name,
-      email: dto.email ?? null,
-    });
-    
-    const savedUser = await this.userRepository.save(user);
+    const [user] = await this.db
+      .insert(schema.users)
+      .values({
+        name: dto.name,
+        email: dto.email ?? null,
+      })
+      .returning();
     
     return {
-      id: savedUser.id,
-      name: savedUser.name,
-      email: savedUser.email,
+      id: user.id,
+      name: user.name,
+      email: user.email,
     };
   }
 
   async findById(id: number): Promise<UserDto | null> {
-    const user = await this.userRepository.findOne({ where: { id } });
+    const [user] = await this.db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.id, id))
+      .limit(1);
+    
     if (!user) {
       return null;
     }
@@ -50,19 +57,28 @@ export class UsersService {
   }
 
   async update(id: number, dto: Partial<CreateUserDto>): Promise<UserDto | null> {
-    const user = await this.userRepository.findOne({ where: { id } });
-    if (!user) {
-      return null;
-    }
-
+    const updateData: Partial<typeof schema.users.$inferInsert> = {};
+    
     if (dto.name !== undefined) {
-      user.name = dto.name;
+      updateData.name = dto.name;
     }
     if (dto.email !== undefined) {
-      user.email = dto.email ?? null;
+      updateData.email = dto.email ?? null;
     }
 
-    const updatedUser = await this.userRepository.save(user);
+    if (Object.keys(updateData).length === 0) {
+      return this.findById(id);
+    }
+
+    const [updatedUser] = await this.db
+      .update(schema.users)
+      .set(updateData)
+      .where(eq(schema.users.id, id))
+      .returning();
+    
+    if (!updatedUser) {
+      return null;
+    }
     
     return {
       id: updatedUser.id,
@@ -72,7 +88,11 @@ export class UsersService {
   }
 
   async delete(id: number): Promise<boolean> {
-    const result = await this.userRepository.delete(id);
-    return (result.affected ?? 0) > 0;
+    const result = await this.db
+      .delete(schema.users)
+      .where(eq(schema.users.id, id))
+      .returning();
+    
+    return result.length > 0;
   }
 }
