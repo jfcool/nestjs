@@ -50,7 +50,7 @@ pnpm dev
 ## 🏗️ Architecture
 
 ### Core Technologies
-- **Backend**: NestJS + TypeScript + PostgreSQL + pgvector
+- **Backend**: NestJS + TypeScript + PostgreSQL + pgvector + pg_trgm
 - **Frontend**: Next.js 15 + React 19 + TailwindCSS + Radix UI
 - **AI/ML**: Ollama (local AI) + pgvector (vector database)
 - **Infrastructure**: Docker Compose
@@ -125,9 +125,11 @@ pnpm test                         # Run all tests
 pnpm run test:cov                 # Run with coverage
 pnpm run test:e2e                 # Run e2e tests
 
-# Database
-pnpm run migration:generate       # Generate migration
-pnpm run migration:run            # Run migrations
+# Database (from apps/api directory)
+cd apps/api
+pnpm run db:generate              # Generate migration
+pnpm run db:migrate               # Run migrations
+pnpm run db:studio                # Open Drizzle Studio
 ```
 
 ## 📁 Project Structure
@@ -180,16 +182,18 @@ Full i18n support with:
 - **JWT Authentication** with refresh tokens
 - **Role-based permissions** with granular control
 - **Input validation** with DTOs
-- **SQL injection protection** with TypeORM
+- **SQL injection protection** with Drizzle ORM
 - **CORS configuration** for production
 
 ## 📊 Database
 
-### PostgreSQL with pgvector
+### PostgreSQL with pgvector & pg_trgm
 - **Vector storage** for AI embeddings (768 dimensions)
 - **Semantic search** with cosine similarity
-- **Automatic migrations** with TypeORM
+- **Fuzzy text search** with pg_trgm extension
+- **Automatic migrations** with Drizzle ORM
 - **PgAdmin UI** for database management
+- **Drizzle Studio** for visual database management
 
 ### Key Entities
 - **Users**: UUID-based user management
@@ -217,8 +221,9 @@ pnpm start
 
 - **`PROJECT_GUIDELINES.md`** - Complete development rules and patterns
 - **`DOCKER_SETUP.md`** - Infrastructure setup and troubleshooting
-- **`API_DOCUMENTATION.md`** - API endpoints and usage
 - **`DATABASE_SETUP.md`** - Database schema and migrations
+- **`LOCAL_DEVELOPMENT_GUIDE.md`** - SAP OData integration guide
+- **`API_DOCUMENTATION.md`** - API endpoints and usage
 
 ## 🤝 Contributing
 
@@ -242,6 +247,19 @@ docker-compose logs -f ollama
 ```bash
 docker-compose ps
 # Ensure nestjs-postgres is running and healthy
+
+# Check database extensions
+docker exec nestjs-postgres psql -U postgres -d nestjs_app -c "SELECT extname, extversion FROM pg_extension WHERE extname IN ('vector', 'pg_trgm');"
+```
+
+**Document search not working?**
+```bash
+# Ensure pg_trgm extension is installed
+docker exec nestjs-postgres psql -U postgres -d nestjs_app -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
+
+# Reindex documents if embeddings are NULL
+cd apps/api
+pnpm exec tsx reindex-now.ts
 ```
 
 **API client out of sync?**

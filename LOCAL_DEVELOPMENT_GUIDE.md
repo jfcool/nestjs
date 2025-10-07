@@ -72,14 +72,14 @@ Sie können auch eigene OData-Calls testen:
 
 ### Business Partners abrufen:
 ```bash
-curl -X POST http://localhost:3002/sapodata/cloud-sdk/business-partners \
+curl -X POST http://localhost:3001/sapodata/cloud-sdk/business-partners \
   -H "Content-Type: application/json" \
   -d '{"connectionId": "ihre-connection-id"}'
 ```
 
 ### Generischer OData Call:
 ```bash
-curl -X POST http://localhost:3002/sapodata/cloud-sdk/execute \
+curl -X POST http://localhost:3001/sapodata/cloud-sdk/execute \
   -H "Content-Type: application/json" \
   -d '{
     "connectionId": "ihre-connection-id",
@@ -90,7 +90,7 @@ curl -X POST http://localhost:3002/sapodata/cloud-sdk/execute \
 
 ### Health Check:
 ```bash
-curl http://localhost:3002/sapodata/cloud-sdk/health
+curl http://localhost:3001/sapodata/cloud-sdk/health
 ```
 
 **✅ Health Check erfolgreich getestet:**

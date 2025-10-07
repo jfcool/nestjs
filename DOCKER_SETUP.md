@@ -12,13 +12,15 @@ Das war's! Alle Services werden automatisch gestartet und konfiguriert.
 
 ## 📋 Services im Container
 
-### 1. PostgreSQL mit pgvector (Port 5432)
+### 1. PostgreSQL mit pgvector und pg_trgm (Port 5432)
 - **Container**: `nestjs-postgres`
 - **Image**: `ankane/pgvector:latest`
 - **Datenbank**: `nestjs_app`
 - **Benutzer**: `postgres`
 - **Passwort**: `joe`
-- **Features**: pgvector Extension für Vector-Embeddings
+- **Features**: 
+  - pgvector Extension für Vector-Embeddings
+  - pg_trgm Extension für Text-Ähnlichkeitssuche (Fuzzy Search)
 
 ### 2. PgAdmin (Port 8080)
 - **Container**: `nestjs-pgadmin`
@@ -155,6 +157,12 @@ docker-compose exec postgres pg_isready -U postgres
 
 # pgvector Extension prüfen
 docker-compose exec postgres psql -U postgres -d nestjs_app -c "SELECT extname FROM pg_extension WHERE extname = 'vector';"
+
+# pg_trgm Extension prüfen
+docker-compose exec postgres psql -U postgres -d nestjs_app -c "SELECT extname FROM pg_extension WHERE extname = 'pg_trgm';"
+
+# Beide Extensions prüfen
+docker-compose exec postgres psql -U postgres -d nestjs_app -c "SELECT extname, extversion FROM pg_extension WHERE extname IN ('vector', 'pg_trgm');"
 ```
 
 ### Ollama Model-Probleme

@@ -59,39 +59,32 @@ services:
       - OLLAMA_ORIGINS=*
       - OLLAMA_HOST=0.0.0.0
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      test: ["CMD-SHELL", "ollama list || exit 1"]
       interval: 30s
       timeout: 10s
-      retries: 5
-      start_period: 60s
+      retries: 10
+      start_period: 120s
     networks:
       - nestjs-network
 
   # Ollama model initialization
   ollama-init:
-    image: ollama/ollama:latest
+    image: curlimages/curl:latest
     container_name: nestjs-ollama-init
     restart: "no"
-    volumes:
-      - ollama_data:/root/.ollama
-    environment:
-      - OLLAMA_HOST=ollama:11434
     depends_on:
       ollama:
         condition: service_healthy
     networks:
       - nestjs-network
-    command: >
-      sh -c "
-        echo 'Waiting for Ollama to be ready...' &&
-        sleep 10 &&
-        echo 'Pulling nomic-embed-text model...' &&
-        ollama pull nomic-embed-text &&
-        echo 'Model pulled successfully!' &&
-        echo 'Testing model...' &&
-        ollama run nomic-embed-text 'Hello, this is a test embedding.' &&
-        echo 'Ollama setup complete!'
-      "
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo 'Waiting for Ollama to be ready...'
+        sleep 5
+        echo 'Pulling nomic-embed-text model...'
+        curl -X POST http://ollama:11434/api/pull -d '{"name": "nomic-embed-text"}'
+        echo 'Model pull initiated successfully!'
 
 volumes:
   postgres_data:
