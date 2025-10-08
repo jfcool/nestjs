@@ -588,7 +588,7 @@ export class McpService implements OnModuleInit, OnModuleDestroy {
     this.logger.log('Cleared all MCP server caches');
   }
 
-  async executeTool(toolCall: McpToolCall): Promise<McpToolResult> {
+  async executeTool(toolCall: McpToolCall, authToken?: string): Promise<McpToolResult> {
     try {
       const server = this.mcpServers.get(toolCall.serverName);
       if (!server) {
@@ -607,6 +607,11 @@ export class McpService implements OnModuleInit, OnModuleDestroy {
       }
 
       this.logger.log(`Executing MCP tool: ${toolCall.serverName}.${toolCall.toolName}`);
+      
+      // For the document-retrieval system, always use the direct API call with auth token
+      if (toolCall.serverName === 'document-retrieval') {
+        return await this.executeDocumentRetrievalTool(toolCall, authToken);
+      }
       
       // Check if this is a real MCP server that we should call
       if (this.mcpClient.isServerRunning(toolCall.serverName)) {
@@ -658,11 +663,6 @@ export class McpService implements OnModuleInit, OnModuleDestroy {
         return await this.executeSapTool(toolCall);
       }
       
-      // For the document-retrieval system, call the actual API
-      if (toolCall.serverName === 'document-retrieval') {
-        return await this.executeDocumentRetrievalTool(toolCall);
-      }
-      
       // Default simulation for other servers
       return {
         success: true,
@@ -682,16 +682,21 @@ export class McpService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async executeDocumentRetrievalTool(toolCall: McpToolCall): Promise<McpToolResult> {
+  private async executeDocumentRetrievalTool(toolCall: McpToolCall, authToken?: string): Promise<McpToolResult> {
     const axios = require('axios');
     
     try {
-      // Get admin token for internal API calls
-      const loginResponse = await axios.post('http://localhost:3001/auth/login', {
-        username: 'admin',
-        password: 'admin'
-      });
-      const token = loginResponse.data.access_token;
+      // Use provided user token if available, otherwise fall back to admin token
+      let token = authToken;
+      
+      if (!token) {
+        // Fallback: Get admin token for internal API calls
+        const loginResponse = await axios.post('http://localhost:3001/auth/login', {
+          username: 'admin',
+          password: 'admin'
+        });
+        token = loginResponse.data.access_token;
+      }
       
       const headers = {
         'Authorization': `Bearer ${token}`,
@@ -703,13 +708,19 @@ export class McpService implements OnModuleInit, OnModuleDestroy {
           const searchUrl = `http://localhost:3001/documents/search?query=${encodeURIComponent(toolCall.arguments.query)}&limit=${toolCall.arguments.limit || 5}&threshold=${toolCall.arguments.threshold || 0.1}`;
           const searchResponse = await axios.get(searchUrl, { headers });
           
+          // Log the actual response to debug
+          this.logger.log(`Search API Response: ${JSON.stringify(searchResponse.data).substring(0, 500)}`);
+          
+          const results = searchResponse.data.data || [];
+          const resultsCount = results.length;
+          
           return {
             success: true,
             result: {
               query: toolCall.arguments.query,
-              results: searchResponse.data.data,
-              resultsCount: searchResponse.data.resultsCount,
-              message: `Found ${searchResponse.data.resultsCount} documents matching "${toolCall.arguments.query}"`
+              results: results,
+              resultsCount: resultsCount,
+              message: `Found ${resultsCount} documents matching "${toolCall.arguments.query}"`
             }
           };
 

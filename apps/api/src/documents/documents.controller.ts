@@ -12,7 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { AuthGuard } from '@nestjs/passport';
+import { JwtOrApiKeyGuard } from '../auth/guards/jwt-or-api-key.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { DocumentIndexingService } from './services/document-indexing.service';
@@ -23,7 +23,7 @@ import { SearchDocumentsDto, SearchResultDto } from './dto/search-documents.dto'
 @ApiTags('Documents')
 @ApiBearerAuth()
 @Controller('documents')
-@UseGuards(AuthGuard('jwt'), PermissionsGuard)
+@UseGuards(JwtOrApiKeyGuard, PermissionsGuard)
 export class DocumentsController {
   private readonly logger = new Logger(DocumentsController.name);
 

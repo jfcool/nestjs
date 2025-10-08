@@ -1,19 +1,25 @@
-import { Controller, Get, Post, Body, Param, Delete, Put, NotFoundException, Sse, Res } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiTags, ApiCreatedResponse, ApiParam } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Param, Delete, Put, NotFoundException, Sse, Res, UseGuards, Req } from '@nestjs/common';
+import { ApiOkResponse, ApiOperation, ApiTags, ApiCreatedResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
+import { AuthGuard } from '@nestjs/passport';
 import { Observable, Subject } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { ChatService } from './chat.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { SendMessageDto } from './dto/send-message.dto';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 
 @ApiTags('chat')
+@ApiBearerAuth()
 @Controller('chat')
+@UseGuards(AuthGuard('jwt'), PermissionsGuard)
 export class ChatController {
   private streamingSubjects = new Map<string, Subject<any>>();
 
   constructor(private readonly chatService: ChatService) {}
 
   @Get('conversations')
+  @RequirePermissions('chat')
   @ApiOperation({ operationId: 'getConversations' })
   @ApiOkResponse({ description: 'List of conversations' })
   async getConversations() {
@@ -21,6 +27,7 @@ export class ChatController {
   }
 
   @Post('conversations')
+  @RequirePermissions('chat')
   @ApiOperation({ operationId: 'createConversation' })
   @ApiCreatedResponse({ description: 'Created conversation' })
   async createConversation(@Body() dto: CreateConversationDto) {
@@ -28,6 +35,7 @@ export class ChatController {
   }
 
   @Get('conversations/:id')
+  @RequirePermissions('chat')
   @ApiOperation({ operationId: 'getConversation' })
   @ApiParam({ name: 'id', type: 'string' })
   @ApiOkResponse({ description: 'Conversation details' })
@@ -36,6 +44,7 @@ export class ChatController {
   }
 
   @Delete('conversations/:id')
+  @RequirePermissions('chat')
   @ApiOperation({ operationId: 'deleteConversation' })
   @ApiParam({ name: 'id', type: 'string' })
   @ApiOkResponse({ type: 'boolean' })
@@ -48,6 +57,7 @@ export class ChatController {
   }
 
   @Put('conversations/:id')
+  @RequirePermissions('chat')
   @ApiOperation({ operationId: 'updateConversation' })
   @ApiParam({ name: 'id', type: 'string' })
   @ApiOkResponse({ description: 'Updated conversation' })
@@ -59,15 +69,20 @@ export class ChatController {
   }
 
   @Post('messages')
+  @RequirePermissions('chat')
   @ApiOperation({ operationId: 'sendMessage' })
   @ApiCreatedResponse({ 
     description: 'Message sent and response generated'
   })
-  async sendMessage(@Body() dto: SendMessageDto) {
-    return this.chatService.sendMessage(dto);
+  async sendMessage(@Body() dto: SendMessageDto, @Req() req: any) {
+    // Extract JWT token from Authorization header
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : undefined;
+    return this.chatService.sendMessage(dto, token);
   }
 
   @Get('mcp/servers')
+  @RequirePermissions('chat')
   @ApiOperation({ operationId: 'getMcpServers' })
   @ApiOkResponse({ 
     description: 'List of available MCP servers',
@@ -90,6 +105,7 @@ export class ChatController {
   }
 
   @Post('mcp/reload')
+  @RequirePermissions('chat')
   @ApiOperation({ operationId: 'reloadMcpConfiguration' })
   @ApiOkResponse({ 
     description: 'Reload MCP server configuration',
@@ -111,6 +127,7 @@ export class ChatController {
   }
 
   @Post('mcp/execute')
+  @RequirePermissions('chat')
   @ApiOperation({ operationId: 'executeMcpTool' })
   @ApiOkResponse({ 
     description: 'MCP tool execution result',
@@ -128,6 +145,7 @@ export class ChatController {
   }
 
   @Get('models')
+  @RequirePermissions('chat')
   @ApiOperation({ operationId: 'getAvailableModels' })
   @ApiOkResponse({ 
     description: 'List of available AI models',
@@ -150,6 +168,7 @@ export class ChatController {
   }
 
   @Get('models/default')
+  @RequirePermissions('chat')
   @ApiOperation({ operationId: 'getDefaultModel' })
   @ApiOkResponse({ 
     description: 'Default AI model configuration',
@@ -168,6 +187,7 @@ export class ChatController {
   }
 
   @Post('models/default')
+  @RequirePermissions('chat')
   @ApiOperation({ operationId: 'setDefaultModel' })
   @ApiOkResponse({ 
     description: 'Set default AI model',
@@ -184,6 +204,7 @@ export class ChatController {
   }
 
   @Get('providers')
+  @RequirePermissions('chat')
   @ApiOperation({ operationId: 'getProviders' })
   @ApiOkResponse({ 
     description: 'List of AI model providers',
@@ -206,6 +227,7 @@ export class ChatController {
   }
 
   @Post('models/reload')
+  @RequirePermissions('chat')
   @ApiOperation({ operationId: 'reloadModels' })
   @ApiOkResponse({ 
     description: 'Reload AI model configuration',
@@ -227,6 +249,7 @@ export class ChatController {
   }
 
   @Get('models/all')
+  @RequirePermissions('chat')
   @ApiOperation({ operationId: 'getAllModels' })
   @ApiOkResponse({ 
     description: 'List of all AI models (including disabled ones)',
@@ -251,6 +274,7 @@ export class ChatController {
   }
 
   @Get('messages/stream/:sessionId')
+  @RequirePermissions('chat')
   @ApiOperation({ operationId: 'streamMessage' })
   streamMessage(@Param('sessionId') sessionId: string, @Res() res: any): void {
     res.writeHead(200, {
@@ -287,8 +311,9 @@ export class ChatController {
   }
 
   @Post('messages/stream')
+  @RequirePermissions('chat')
   @ApiOperation({ operationId: 'sendStreamingMessage' })
-  async sendStreamingMessage(@Body() dto: SendMessageDto & { sessionId: string }): Promise<{ sessionId: string }> {
+  async sendStreamingMessage(@Body() dto: SendMessageDto & { sessionId: string }, @Req() req: any): Promise<{ sessionId: string }> {
     const sessionId = dto.sessionId || Date.now().toString();
     const subject = this.streamingSubjects.get(sessionId);
     
@@ -303,13 +328,17 @@ export class ChatController {
       timestamp: new Date().toISOString()
     });
 
+    // Extract JWT token from Authorization header
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : undefined;
+
     // Process message asynchronously
-    this.processStreamingMessage(dto, sessionId, subject);
+    this.processStreamingMessage(dto, sessionId, subject, token);
     
     return { sessionId };
   }
 
-  private async processStreamingMessage(dto: SendMessageDto, sessionId: string, subject: Subject<any>) {
+  private async processStreamingMessage(dto: SendMessageDto, sessionId: string, subject: Subject<any>, token?: string) {
     try {
       // Send processing status
       subject.next({
@@ -337,7 +366,7 @@ export class ChatController {
       });
 
       // Get the actual response
-      const result = await this.chatService.sendMessage(dto);
+      const result = await this.chatService.sendMessage(dto, token);
       
       // Stream the response word by word
       const words = result.assistantMessage.content.split(' ');

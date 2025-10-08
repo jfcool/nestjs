@@ -110,7 +110,7 @@ export class ChatService {
     return conversation;
   }
 
-  async sendMessage(dto: SendMessageDto): Promise<{ userMessage: any; assistantMessage: any }> {
+  async sendMessage(dto: SendMessageDto, authToken?: string): Promise<{ userMessage: any; assistantMessage: any }> {
     let conversation: schema.Conversation;
     let isNewConversation = false;
 
@@ -136,8 +136,8 @@ export class ChatService {
       })
       .returning();
 
-    // Generate assistant response
-    const assistantResponse = await this.generateResponse(conversation, dto);
+      // Generate assistant response
+      const assistantResponse = await this.generateResponse(conversation, dto, authToken);
 
     // Save assistant message
     const [assistantMessage] = await this.db
@@ -189,6 +189,7 @@ export class ChatService {
   private async generateResponse(
     conversation: schema.Conversation,
     dto: SendMessageDto,
+    authToken?: string,
   ): Promise<{ content: string; mcpToolCalls?: any[] }> {
     try {
       // Get conversation history
@@ -235,10 +236,17 @@ export class ChatService {
         try {
           this.logger.log(`Semantically analyzing user input: "${dto.content}" with active servers: ${activeServers.join(', ')}`);
           
+          // Extract conversation history for context (last 5 messages)
+          const conversationHistory = messages
+            .slice(-5)
+            .map(msg => msg.content);
+          
           const semanticResults = await this.semanticMcpService.analyzeAndExecuteSemanticTools(
             dto.content,
             activeServers,
-            true // auto-execute enabled tools
+            true, // auto-execute enabled tools
+            authToken,
+            conversationHistory // Pass conversation history for context
           );
 
           if (semanticResults.length > 0) {
@@ -251,7 +259,8 @@ export class ChatService {
             const proactiveResults = await this.proactiveMcpService.analyzeAndExecuteProactiveTools(
               dto.content,
               activeServers,
-              true
+              true,
+              authToken
             );
             
             if (proactiveResults.length > 0) {

@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, UseGuards, Request } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
@@ -11,7 +11,8 @@ export class DashboardController {
 
   @Get('stats')
   @RequirePermissions('dashboard')
-  async getDashboardStats() {
-    return this.dashboardService.getDashboardStats();
+  async getDashboardStats(@Request() req) {
+    const userPermissions = req.user.permissions || [];
+    return this.dashboardService.getDashboardStats(userPermissions);
   }
 }

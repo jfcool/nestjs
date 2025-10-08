@@ -129,16 +129,28 @@ export class SemanticMcpService implements OnModuleInit {
   async analyzeAndExecuteSemanticTools(
     userInput: string,
     activeServers: string[],
-    autoExecute: boolean = true
+    autoExecute: boolean = true,
+    authToken?: string,
+    conversationHistory?: string[]
   ): Promise<{ toolCall: McpToolCall; result: any }[]> {
     if (!this.config.enabled) {
       return [];
     }
 
     const results: { toolCall: McpToolCall; result: any }[] = [];
-    const inputLower = userInput.toLowerCase();
     
-    // Extract semantic information from user input
+    // Combine current input with recent conversation history for context
+    let contextualInput = userInput;
+    if (conversationHistory && conversationHistory.length > 0) {
+      // Include the last 3 messages for context
+      const recentHistory = conversationHistory.slice(-3).join(' ');
+      contextualInput = `${recentHistory} ${userInput}`;
+      this.logger.debug(`Using contextual input: "${contextualInput.substring(0, 100)}..."`);
+    }
+    
+    const inputLower = contextualInput.toLowerCase();
+    
+    // Extract semantic information from user input with context
     const semanticAnalysis = this.analyzeUserIntent(inputLower);
     
     if (!semanticAnalysis.tables.length && !semanticAnalysis.operations.some(op => ['search_documents', 'get_document_context', 'get_document_stats'].includes(op))) {
@@ -158,7 +170,7 @@ export class SemanticMcpService implements OnModuleInit {
       const toolCall = this.buildSemanticToolCall(bestTool, semanticAnalysis, userInput);
       this.logger.log(`Semantically executing: ${toolCall.serverName}.${toolCall.toolName} for table ${toolCall.arguments.ddicEntityName}`);
       
-      const result = await this.mcpService.executeTool(toolCall);
+      const result = await this.mcpService.executeTool(toolCall, authToken);
       results.push({ toolCall, result });
       
     } catch (error) {
@@ -304,41 +316,90 @@ export class SemanticMcpService implements OnModuleInit {
   }
 
   private extractSearchQuery(userInput: string, concepts: string[]): string {
-    const inputLower = userInput.toLowerCase();
-    
-    // Look for specific search terms after keywords like "nach", "für", "über", "mit"
+    // Priority 1: Look for quoted text (highest priority)
+    const quotedMatch = userInput.match(/["']([^"']+)["']/);
+    if (quotedMatch && quotedMatch[1]) {
+      const quoted = quotedMatch[1].trim();
+      // Make sure it's not a document-related stop word
+      if (!['dokument', 'dokumente', 'document', 'documents', 'datei', 'dateien', 'file', 'files'].includes(quoted.toLowerCase())) {
+        return quoted;
+      }
+    }
+
+    // Priority 2: Look for specific search patterns
     const searchPatterns = [
-      /begriff\s+["']?([^"'?\s]+)["']?\s*(?:vor|enthalten)/i,
-      /term\s+["']?([^"'?\s]+)["']?\s*(?:appears|contains)/i,
-      /nach\s+["']?([^"'?\s]+)["']?\s*(?:suche|durchsuche|finde|kommt vor|enthalten)/i,
-      /für\s+["']?([^"'?\s]+)["']?\s*(?:suche|durchsuche|finde|kommt vor|enthalten)/i,
-      /über\s+["']?([^"'?\s]+)["']?\s*(?:suche|durchsuche|finde|kommt vor|enthalten)/i,
-      /mit\s+["']?([^"'?\s]+)["']?\s*(?:suche|durchsuche|finde|kommt vor|enthalten)/i,
-      /["']([^"'?\s]+)["']\s*(?:vor|enthalten|appears|contains)/i,
-      /kommt\s+der\s+begriff\s+([A-Z0-9]+)\s+vor/i,
-      /contains?\s+the\s+term\s+([A-Z0-9]+)/i
+      // Handle "nach X nach Y" pattern - take the LAST "nach" term
+      /.*nach\s+["']?([A-ZÄÖÜ][a-zäöüß]+)["']?\s*$/i,
+      // Handle "nach X in/suche/durchsuche/finde"
+      /nach\s+["']?([^"'\s]+)["']?\s+(?:in|suche|durchsuche|finde)/i,
+      // Handle "suche nach X"
+      /such(?:e|en)?\s+(?:nach\s+)?["']?([^"'\s]+)["']?(?:\s+in)?/i,
+      // Handle "finde X"
+      /find(?:e|en)?\s+["']?([^"'\s]+)["']?/i,
+      // Handle "for X"
+      /for\s+["']?([^"'\s]+)["']?/i,
+      // Handle "wo kommt X vor"
+      /wo\s+kommt\s+(?:der\s+begriff\s+)?["']?([^"'\s]+)["']?\s+vor/i,
+      // Handle "kommt der begriff X vor"
+      /kommt\s+der\s+begriff\s+["']?([^"'\s]+)["']?\s+vor/i,
+      // Handle "begriff X"
+      /begriff\s+["']?([^"'\s]+)["']?\s*(?:vor|enthalten)/i,
+      // Handle "contains X"
+      /contains?\s+(?:the\s+)?(?:term\s+)?["']?([^"'\s]+)["']?/i,
     ];
 
     for (const pattern of searchPatterns) {
       const match = userInput.match(pattern);
       if (match && match[1]) {
-        return match[1].trim();
+        const term = match[1].trim();
+        // Exclude common document-related stop words
+        if (!['dokument', 'dokumente', 'document', 'documents', 'datei', 'dateien', 'file', 'files', 'meinen', 'meiner', 'meine', 'my'].includes(term.toLowerCase())) {
+          return term;
+        }
       }
     }
 
-    // If no specific pattern found, use the first concept or extract from context
-    if (concepts.length > 0) {
-      return concepts[0];
+    // Priority 3: Extract capitalized words (likely proper nouns/names) from the contextual input
+    // This helps when user says "try again" - we look for names mentioned earlier
+    const capitalizedWords = userInput.match(/\b[A-ZÄÖÜ][a-zäöüß]+\b/g);
+    if (capitalizedWords && capitalizedWords.length > 0) {
+      // Filter out common German/English words that are capitalized AND command words
+      const commonCapitalized = new Set(['Das', 'Die', 'Der', 'Ein', 'Eine', 'Einen', 'This', 'The', 'That', 'These', 'Those', 'Sie', 'Ihr', 'Ihre', 'Ihren', 'Ich', 'Habe', 'Kann', 'Möchte', 'Please', 'Bitte', 'Zeige', 'Suche', 'Finde', 'Stelle', 'Dokument', 'Dokumenten', 'Ok', 'Also', 'Und', 'Aber', 'Jetzt', 'Dann', 'Noch', 'Mal', 'Nochmal', 'Wieder']);
+      const properNouns = capitalizedWords.filter(word => 
+        !commonCapitalized.has(word) && 
+        word.length > 2
+      );
+      
+      if (properNouns.length > 0) {
+        // Prefer names that appear multiple times or later in the text (more likely to be what user is asking about)
+        const lastProperNoun = properNouns[properNouns.length - 1];
+        this.logger.debug(`Found proper noun in context: ${lastProperNoun}`);
+        return lastProperNoun;
+      }
     }
 
-    // Last resort: extract potential search terms from the input
+    // Priority 4: If concepts exist, filter out document-related ones
+    if (concepts.length > 0) {
+      const filteredConcepts = concepts.filter(c => 
+        !['dokument', 'dokumente', 'document', 'documents', 'datei', 'dateien', 'file', 'files', 'suche', 'search', 'finde', 'find'].includes(c.toLowerCase())
+      );
+      if (filteredConcepts.length > 0) {
+        return filteredConcepts[0];
+      }
+    }
+
+    // Priority 5: Extract meaningful words from input
+    const inputLower = userInput.toLowerCase();
     const words = inputLower.split(/\s+/);
+    const stopWords = new Set(['der', 'die', 'das', 'und', 'oder', 'mit', 'für', 'von', 'zu', 'in', 'auf', 'an', 'bei', 'nach', 'über', 'unter', 'vor', 'zwischen', 'durch', 'gegen', 'ohne', 'um', 'the', 'and', 'or', 'with', 'for', 'from', 'to', 'in', 'on', 'at', 'by', 'after', 'over', 'under', 'before', 'between', 'through', 'against', 'without', 'around', 'welchen', 'meiner', 'meinem', 'meine', 'dokumente', 'dokument', 'documents', 'document', 'kommt', 'enthalten', 'bitte', 'please', 'suche', 'search', 'finde', 'find', 'durchsuche', 'noch', 'einmal', 'nochmal', 'again', 'versuche', 'try', 'es']);
+    
     const searchWords = words.filter(word => 
       word.length > 2 && 
-      !['der', 'die', 'das', 'und', 'oder', 'mit', 'für', 'von', 'zu', 'in', 'auf', 'an', 'bei', 'nach', 'über', 'unter', 'vor', 'zwischen', 'durch', 'gegen', 'ohne', 'um', 'the', 'and', 'or', 'with', 'for', 'from', 'to', 'in', 'on', 'at', 'by', 'after', 'over', 'under', 'before', 'between', 'through', 'against', 'without', 'around', 'welchen', 'meiner', 'dokumente', 'kommt', 'enthalten'].includes(word)
+      !stopWords.has(word) &&
+      !/^\d+$/.test(word) // Exclude pure numbers
     );
 
-    return searchWords.slice(0, 3).join(' ') || 'documents';
+    return searchWords.slice(0, 2).join(' ') || 'content';
   }
 
   /**

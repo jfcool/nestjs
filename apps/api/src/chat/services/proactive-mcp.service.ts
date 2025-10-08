@@ -194,7 +194,8 @@ export class ProactiveMcpService implements OnModuleInit {
   async analyzeAndExecuteProactiveTools(
     userInput: string,
     activeServers: string[],
-    autoExecute: boolean = true
+    autoExecute: boolean = true,
+    authToken?: string
   ): Promise<{ toolCall: McpToolCall; result: any }[]> {
     if (!this.config.enabled) {
       return [];
@@ -224,7 +225,7 @@ export class ProactiveMcpService implements OnModuleInit {
         const toolCall = this.buildToolCall(match, userInput);
         this.logger.log(`Proactively executing: ${toolCall.serverName}.${toolCall.toolName}`);
         
-        const result = await this.mcpService.executeTool(toolCall);
+        const result = await this.mcpService.executeTool(toolCall, authToken);
         results.push({ toolCall, result });
         
         // If we got a successful result, we might not need to execute more tools

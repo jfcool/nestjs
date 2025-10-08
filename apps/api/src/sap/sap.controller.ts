@@ -1,4 +1,8 @@
-import { Controller, Post, Body, Get, Param, Query, Logger, Delete, Put } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Query, Logger, Delete, Put, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth } from '@nestjs/swagger';
+import { AuthGuard } from '@nestjs/passport';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { SapService } from './sap.service';
 import { SapConnectionDto, SapODataRequestDto, SapODataResponse } from './dto/sap-connection.dto';
 import { ConnectionService } from './services/connection.service';
@@ -8,7 +12,9 @@ import type { SapCloudSdkRequestDto as BtpSapCloudSdkRequestDto, SapCloudSdkResp
 import type { SapCloudSdkRequestDto, SapCloudSdkResponse } from './services/sap-cloud-sdk-local.service';
 import type { CreateConnectionDto, UpdateConnectionDto } from './services/connection.service';
 
+@ApiBearerAuth()
 @Controller('sapodata')
+@UseGuards(AuthGuard('jwt'), PermissionsGuard)
 export class SapController {
   private readonly logger = new Logger(SapController.name);
 
@@ -24,6 +30,7 @@ export class SapController {
    * POST /sapodata/data
    */
   @Post('data')
+  @RequirePermissions('sapodata')
   async getSapOData(@Body() request: SapODataRequestDto): Promise<SapODataResponse> {
     this.logger.log(`Fetching SAP OData for service path: ${request.servicePath}`);
     
@@ -39,6 +46,7 @@ export class SapController {
    * POST /sapodata/metadata
    */
   @Post('metadata')
+  @RequirePermissions('sapodata')
   async getSapODataMetadata(@Body() request: SapODataRequestDto): Promise<SapODataResponse> {
     this.logger.log(`Fetching SAP OData metadata for service path: ${request.servicePath}`);
     
@@ -54,6 +62,7 @@ export class SapController {
    * POST /sapodata/setup
    */
   @Post('setup')
+  @RequirePermissions('sapodata')
   async setupConnectionSettings(@Body() connectionInfo: SapConnectionDto): Promise<Record<string, any>> {
     this.logger.log('Setting up SAP connection settings');
     return this.sapService.setupConnectionSettings(connectionInfo);
@@ -64,6 +73,7 @@ export class SapController {
    * POST /sapodata/catalog
    */
   @Post('catalog')
+  @RequirePermissions('sapodata')
   async getServiceCatalog(@Body() connectionInfo: SapConnectionDto): Promise<SapODataResponse> {
     this.logger.log('Fetching SAP service catalog');
     // Fetch the actual service catalog from SAP with filter to exclude ZUI_ services
@@ -76,6 +86,7 @@ export class SapController {
    * POST /sapodata/service/:serviceName/entitysets
    */
   @Post('service/:serviceName/entitysets')
+  @RequirePermissions('sapodata')
   async getServiceEntitySets(
     @Param('serviceName') serviceName: string,
     @Body() connectionInfo: SapConnectionDto
@@ -92,6 +103,7 @@ export class SapController {
    * POST /sapodata/service/:serviceName/entityset/:entitySetName
    */
   @Post('service/:serviceName/entityset/:entitySetName')
+  @RequirePermissions('sapodata')
   async getEntitySetData(
     @Param('serviceName') serviceName: string,
     @Param('entitySetName') entitySetName: string,
@@ -124,6 +136,7 @@ export class SapController {
    * POST /sapodata/service/:serviceName
    */
   @Post('service/:serviceName')
+  @RequirePermissions('sapodata')
   async getServiceData(
     @Param('serviceName') serviceName: string,
     @Body() connectionInfo: SapConnectionDto,
@@ -158,6 +171,7 @@ export class SapController {
    * POST /sapodata/service/:serviceName/metadata
    */
   @Post('service/:serviceName/metadata')
+  @RequirePermissions('sapodata')
   async getServiceMetadata(
     @Param('serviceName') serviceName: string,
     @Body() connectionInfo: SapConnectionDto
@@ -172,6 +186,7 @@ export class SapController {
    * POST /sapodata/service/:serviceName/metadata/parsed
    */
   @Post('service/:serviceName/metadata/parsed')
+  @RequirePermissions('sapodata')
   async getParsedMetadata(
     @Param('serviceName') serviceName: string,
     @Body() connectionInfo: SapConnectionDto
@@ -203,6 +218,7 @@ export class SapController {
    * GET /sapodata/connections
    */
   @Get('connections')
+  @RequirePermissions('sapodata')
   async getConnections() {
     this.logger.log('Fetching all SAP connections');
     return this.connectionService.listConnections();
@@ -213,6 +229,7 @@ export class SapController {
    * POST /sapodata/connections
    */
   @Post('connections')
+  @RequirePermissions('sapodata')
   async createConnection(@Body() createConnectionDto: CreateConnectionDto) {
     this.logger.log(`Creating new SAP connection: ${createConnectionDto.name}`);
     return this.connectionService.createConnection(createConnectionDto);
@@ -223,6 +240,7 @@ export class SapController {
    * GET /sapodata/connections/:id
    */
   @Get('connections/:id')
+  @RequirePermissions('sapodata')
   async getConnection(@Param('id') id: string) {
     this.logger.log(`Fetching SAP connection: ${id}`);
     const { connection } = await this.connectionService.getConnectionById(id);
@@ -234,6 +252,7 @@ export class SapController {
    * PUT /sapodata/connections/:id
    */
   @Put('connections/:id')
+  @RequirePermissions('sapodata')
   async updateConnection(
     @Param('id') id: string,
     @Body() updateConnectionDto: UpdateConnectionDto
@@ -247,6 +266,7 @@ export class SapController {
    * DELETE /sapodata/connections/:id
    */
   @Delete('connections/:id')
+  @RequirePermissions('sapodata')
   async deleteConnection(@Param('id') id: string) {
     this.logger.log(`Deleting SAP connection: ${id}`);
     await this.connectionService.deleteConnection(id);
@@ -258,6 +278,7 @@ export class SapController {
    * POST /sapodata/connections/:id/test
    */
   @Post('connections/:id/test')
+  @RequirePermissions('sapodata')
   async testConnection(@Param('id') id: string) {
     this.logger.log(`Testing SAP connection: ${id}`);
     return this.connectionService.testConnection(id);
@@ -268,6 +289,7 @@ export class SapController {
    * POST /sapodata/connection/:connectionId/data
    */
   @Post('connection/:connectionId/data')
+  @RequirePermissions('sapodata')
   async getDataWithConnection(
     @Param('connectionId') connectionId: string,
     @Body() request: { servicePath: string; cacheConnectionId?: string }
@@ -281,6 +303,7 @@ export class SapController {
    * POST /sapodata/connection/:connectionId/metadata
    */
   @Post('connection/:connectionId/metadata')
+  @RequirePermissions('sapodata')
   async getMetadataWithConnection(
     @Param('connectionId') connectionId: string,
     @Body() request: { servicePath: string; cacheConnectionId?: string }
@@ -294,6 +317,7 @@ export class SapController {
    * POST /sapodata/connection/:connectionId/catalog
    */
   @Post('connection/:connectionId/catalog')
+  @RequirePermissions('sapodata')
   async getServiceCatalogWithConnection(
     @Param('connectionId') connectionId: string,
     @Body() request: { cacheConnectionId?: string }
@@ -308,6 +332,7 @@ export class SapController {
    * POST /sapodata/connection/:connectionId/service/:serviceName/metadata/parsed
    */
   @Post('connection/:connectionId/service/:serviceName/metadata/parsed')
+  @RequirePermissions('sapodata')
   async getParsedMetadataWithConnection(
     @Param('connectionId') connectionId: string,
     @Param('serviceName') serviceName: string,
@@ -340,6 +365,7 @@ export class SapController {
    * POST /sapodata/connection/:connectionId/service/:serviceName/entityset/:entitySetName
    */
   @Post('connection/:connectionId/service/:serviceName/entityset/:entitySetName')
+  @RequirePermissions('sapodata')
   async getEntitySetDataWithConnection(
     @Param('connectionId') connectionId: string,
     @Param('serviceName') serviceName: string,
@@ -375,6 +401,7 @@ export class SapController {
    * POST /sapodata/cloud-sdk/execute
    */
   @Post('cloud-sdk/execute')
+  @RequirePermissions('sapodata')
   async executeSapCloudSdkRequest(@Body() request: SapCloudSdkRequestDto): Promise<SapCloudSdkResponse> {
     this.logger.log(`[SAP Cloud SDK Local] Executing request: ${request.servicePath}`);
     return this.sapCloudSdkLocalService.executeRequest(request);
@@ -385,6 +412,7 @@ export class SapController {
    * POST /sapodata/cloud-sdk/business-partners
    */
   @Post('cloud-sdk/business-partners')
+  @RequirePermissions('sapodata')
   async getBusinessPartnersWithCloudSdk(
     @Body() request: { connectionId: string; top?: number }
   ): Promise<SapCloudSdkResponse> {

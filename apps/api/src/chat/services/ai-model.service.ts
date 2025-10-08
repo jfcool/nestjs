@@ -257,14 +257,45 @@ export class AIModelService {
             if (toolCall.toolCall.serverName === 'document-retrieval' && toolCall.toolCall.toolName === 'search_documents') {
               const result = toolCall.result;
               
-              // Handle the actual MCP response format: result.content[0].text contains the formatted results
-              if (result.content && Array.isArray(result.content) && result.content[0] && result.content[0].text) {
+              // Debug: Log the exact structure we receive
+              this.logger.log(`Document search result structure: ${JSON.stringify({
+                hasResult: !!result.result,
+                hasResults: !!(result.result && result.result.results),
+                isArray: !!(result.result && result.result.results && Array.isArray(result.result.results)),
+                resultsLength: result.result && result.result.results ? result.result.results.length : 0
+              })}`);
+              
+              // Handle our API format: result.result.results contains the search results
+              if (result.result && result.result.results && Array.isArray(result.result.results)) {
+                const results = result.result.results;
+                const resultsCount = result.result.resultsCount || results.length;
+                
+                if (resultsCount > 0) {
+                  mcpContext += `\n\n✅ DOKUMENTENSUCHE ERFOLGREICH - ${resultsCount} ERGEBNISSE GEFUNDEN\n`;
+                  mcpContext += `Suchbegriff: "${toolCall.toolCall.arguments.query}"\n\n`;
+                  mcpContext += `Die folgenden Dokumente wurden gefunden:\n\n`;
+                  
+                  results.forEach((doc: any, index: number) => {
+                    mcpContext += `【${index + 1}】 ${doc.documentTitle || 'Untitled'}\n`;
+                    mcpContext += `   📂 Dateipfad: ${doc.documentPath}\n`;
+                    mcpContext += `   📄 Inhalt: "${doc.content.substring(0, 150).trim()}..."\n`;
+                    if (doc.score) {
+                      mcpContext += `   ⭐ Relevanz: ${(doc.score * 100).toFixed(1)}%\n`;
+                    }
+                    mcpContext += `\n`;
+                  });
+                  
+                  mcpContext += `\n‼️ WICHTIG FÜR DEINE ANTWORT ‼️\n`;
+                  mcpContext += `Du MUSST dem Benutzer diese ${resultsCount} gefundenen Dokumente präsentieren!\n`;
+                  mcpContext += `Formatiere sie schön mit Titel, Pfad und Inhalts-Vorschau.\n`;
+                  mcpContext += `IGNORIERE NICHT diese Suchergebnisse! Sie sind real und wurden erfolgreich aus der Datenbank abgerufen.\n`;
+                } else {
+                  mcpContext += `\nKeine Dokumente gefunden für "${toolCall.toolCall.arguments.query}"\n`;
+                }
+              }
+              // Fallback for other formats
+              else if (result.content && Array.isArray(result.content) && result.content[0] && result.content[0].text) {
                 const mcpText = result.content[0].text;
-                mcpContext += `${mcpText}\n\n`;
-                mcpContext += `IMPORTANT: The above search results show the documents found. Present them clearly to the user with their relevance scores and content previews.\n`;
-              } else if (result.result && result.result.content && Array.isArray(result.result.content)) {
-                // Alternative format: result.result.content[0].text
-                const mcpText = result.result.content[0].text;
                 mcpContext += `${mcpText}\n\n`;
                 mcpContext += `IMPORTANT: The above search results show the documents found. Present them clearly to the user with their relevance scores and content previews.\n`;
               } else {
