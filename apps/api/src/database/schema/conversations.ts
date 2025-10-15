@@ -8,6 +8,8 @@ export const conversations = pgTable('conversations', {
   model: varchar('model', { length: 100 }).notNull().default('gpt-4'),
   systemPrompt: jsonb('systemPrompt').$type<string>(),
   mcpServers: jsonb('mcpServers').$type<string[]>(),
+  createdBy: varchar('createdBy', { length: 50 }),  // User ID who created the conversation
+  activeUsers: jsonb('activeUsers').$type<Array<{userId: string, username: string}>>().default([]),  // Active users in this conversation
   createdAt: timestamp('createdAt', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updatedAt', { withTimezone: true }).notNull().defaultNow(),
 });

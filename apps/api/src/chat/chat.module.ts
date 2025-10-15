@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
 import { ChatController } from './chat.controller';
+import { ChatGateway } from './chat.gateway';
 import { ChatService } from './chat.service';
 import { McpService } from './services/mcp.service';
 import { McpClientService } from './services/mcp-client.service';
@@ -10,11 +12,30 @@ import { AIModelService } from './services/ai-model.service';
 import { AIChainService } from './services/ai-chain.service';
 import { AIAgentService } from './services/ai-agent.service';
 import { DocumentsModule } from '../documents/documents.module';
+import { WsJwtGuard } from '../auth/guards/ws-jwt.guard';
 
 @Module({
-  imports: [DocumentsModule],
+  imports: [
+    DocumentsModule,
+    JwtModule.register({
+      secret: process.env.JWT_SECRET || 'your-secret-key',
+      signOptions: { expiresIn: '7d' },
+    }),
+  ],
   controllers: [ChatController],
-  providers: [ChatService, McpService, McpClientService, ProactiveMcpService, SemanticMcpService, GenericSAPFormatterService, AIModelService, AIChainService, AIAgentService],
+  providers: [
+    ChatGateway,
+    ChatService,
+    McpService,
+    McpClientService,
+    ProactiveMcpService,
+    SemanticMcpService,
+    GenericSAPFormatterService,
+    AIModelService,
+    AIChainService,
+    AIAgentService,
+    WsJwtGuard,
+  ],
   exports: [ChatService, McpService, AIModelService],
 })
 export class ChatModule {}

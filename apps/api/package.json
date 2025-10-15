@@ -16,6 +16,7 @@
     "@nestjs/cli": "^11.0.10",
     "@types/node": "^24.3.1",
     "@types/pg": "^8.15.5",
+    "@types/socket.io": "^3.0.2",
     "drizzle-kit": "^0.28.1",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
@@ -31,7 +32,9 @@
     "@nestjs/jwt": "^11.0.0",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.1.6",
+    "@nestjs/platform-socket.io": "^11.1.6",
     "@nestjs/swagger": "^11.2.0",
+    "@nestjs/websockets": "^11.1.6",
     "@sap-cloud-sdk/connectivity": "^4.1.1",
     "@sap-cloud-sdk/http-client": "^4.1.1",
     "@sap/xsenv": "^6.0.0",
@@ -55,6 +58,7 @@
     "postgres": "^3.4.5",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
+    "socket.io": "^4.8.1",
     "swagger-ui-express": "^5.0.1"
   }
 }

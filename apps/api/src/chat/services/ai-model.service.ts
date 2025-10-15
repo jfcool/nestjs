@@ -185,6 +185,190 @@ export class AIModelService {
     throw new Error('No AI models available');
   }
 
+  /**
+   * Generate streaming response from AI model
+   * Returns an async generator that yields text chunks
+   */
+  async *generateResponseStream(
+    messages: ChatMessage[],
+    modelId?: string,
+    mcpToolCalls?: any[]
+  ): AsyncGenerator<string, void, undefined> {
+    const model = modelId ? this.getModel(modelId) : this.getDefaultModel();
+    if (!model) {
+      throw new Error(`Model ${modelId} not found or not enabled`);
+    }
+
+    this.logger.log(`Generating streaming response using model: ${model.name}`);
+
+    try {
+      if (model.provider === 'anthropic') {
+        yield* this.streamAnthropic(model, messages, mcpToolCalls);
+      } else {
+        // Fallback to non-streaming for other providers
+        const response = await this.generateResponse(messages, modelId, mcpToolCalls);
+        // Simulate streaming by yielding word by word
+        const words = response.content.split(' ');
+        for (const word of words) {
+          yield word + ' ';
+          await this.delay(50);
+        }
+      }
+    } catch (error) {
+      this.logger.error(`Error generating streaming response with ${model.name}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Stream response from Anthropic API
+   */
+  private async *streamAnthropic(
+    model: AIModel,
+    messages: ChatMessage[],
+    mcpToolCalls?: any[]
+  ): AsyncGenerator<string, void, undefined> {
+    if (!model.apiKey) {
+      throw new Error('Anthropic API key not configured');
+    }
+
+    // Convert messages to Anthropic format
+    const anthropicMessages = messages
+      .filter(msg => msg.role !== 'system')
+      .map(msg => ({
+        role: msg.role === 'assistant' ? 'assistant' : 'user',
+        content: msg.content
+      }));
+
+    // Add MCP tool results to the conversation if available
+    if (mcpToolCalls && mcpToolCalls.length > 0) {
+      let mcpContext = '\n\n--- MCP Tool Results ---\n';
+      mcpToolCalls.forEach((toolCall, index) => {
+        mcpContext += `\nTool ${index + 1}: ${toolCall.toolCall.serverName}.${toolCall.toolCall.toolName}\n`;
+        mcpContext += `Arguments: ${JSON.stringify(toolCall.toolCall.arguments, null, 2)}\n`;
+        
+        if (toolCall.result.success) {
+          if (toolCall.toolCall.serverName === 'document-retrieval' && toolCall.toolCall.toolName === 'search_documents') {
+            const result = toolCall.result;
+            if (result.result && result.result.results && Array.isArray(result.result.results)) {
+              const results = result.result.results;
+              const resultsCount = result.result.resultsCount || results.length;
+              
+              if (resultsCount > 0) {
+                mcpContext += `\n\n✅ DOKUMENTENSUCHE ERFOLGREICH - ${resultsCount} ERGEBNISSE GEFUNDEN\n`;
+                mcpContext += `Suchbegriff: "${toolCall.toolCall.arguments.query}"\n\n`;
+                mcpContext += `Die folgenden Dokumente wurden gefunden:\n\n`;
+                
+                results.forEach((doc: any, index: number) => {
+                  mcpContext += `【${index + 1}】 ${doc.documentTitle || 'Untitled'}\n`;
+                  mcpContext += `   📂 Dateipfad: ${doc.documentPath}\n`;
+                  mcpContext += `   📄 Inhalt: "${doc.content.substring(0, 150).trim()}..."\n`;
+                  if (doc.score) {
+                    mcpContext += `   ⭐ Relevanz: ${(doc.score * 100).toFixed(1)}%\n`;
+                  }
+                  mcpContext += `\n`;
+                });
+                
+                mcpContext += `\n‼️ WICHTIG FÜR DEINE ANTWORT ‼️\n`;
+                mcpContext += `Du MUSST dem Benutzer diese ${resultsCount} gefundenen Dokumente präsentieren!\n`;
+              }
+            }
+          } else {
+            mcpContext += `Result: ${JSON.stringify(toolCall.result.result, null, 2)}\n`;
+          }
+        } else {
+          mcpContext += `Error: ${toolCall.result.error}\n`;
+        }
+      });
+      mcpContext += '\n--- End MCP Tool Results ---\n\n';
+      
+      if (anthropicMessages.length > 0 && anthropicMessages[anthropicMessages.length - 1].role === 'user') {
+        anthropicMessages[anthropicMessages.length - 1].content += mcpContext;
+      }
+    }
+
+    const systemMessage = messages.find(msg => msg.role === 'system')?.content;
+
+    const anthropicModelMap: Record<string, string> = {
+      'claude-sonnet-4-20250514': 'claude-3-5-sonnet-20241022',
+      'claude-sonnet-4-20250514:1m': 'claude-3-5-sonnet-20241022',
+      'claude-opus-4-1-20250805': 'claude-3-opus-20240229',
+      'claude-opus-4-20250514': 'claude-3-opus-20240229',
+      'claude-3-7-sonnet-20250219': 'claude-3-5-sonnet-20241022',
+      'claude-3-5-sonnet-20241022': 'claude-3-5-sonnet-20241022',
+      'claude-3-5-haiku-20241022': 'claude-3-5-haiku-20241022',
+      'claude-3-opus-20240229': 'claude-3-opus-20240229',
+      'claude-3-haiku-20240307': 'claude-3-haiku-20240307',
+    };
+
+    const requestBody = {
+      model: anthropicModelMap[model.id] || 'claude-3-5-sonnet-20241022',
+      max_tokens: model.maxTokens,
+      temperature: model.temperature,
+      messages: anthropicMessages,
+      stream: true, // Enable streaming
+      ...(systemMessage && { system: systemMessage })
+    };
+
+    this.logger.log(`Making Anthropic API streaming call with ${anthropicMessages.length} messages`);
+
+    const response = await fetch(model.endpoint!, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': model.apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Anthropic API error: ${response.status} - ${errorText}`);
+    }
+
+    if (!response.body) {
+      throw new Error('No response body from Anthropic API');
+    }
+
+    // Parse Server-Sent Events stream
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') continue;
+
+            try {
+              const event = JSON.parse(data);
+              
+              // Handle different event types
+              if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
+                yield event.delta.text;
+              }
+            } catch (error) {
+              // Skip invalid JSON
+              continue;
+            }
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  }
+
   async generateResponse(
     messages: ChatMessage[],
     modelId?: string,
@@ -754,5 +938,12 @@ Stellen Sie Ihre Frage gerne noch einmal - normalerweise funktioniert das System
       .replace(/[_-]/g, ' ')
       .replace(/\b\w/g, l => l.toUpperCase())
       .trim() || 'Untitled Document';
+  }
+
+  /**
+   * Delay helper for streaming simulation
+   */
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

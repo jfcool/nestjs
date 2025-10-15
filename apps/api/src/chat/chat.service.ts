@@ -392,6 +392,143 @@ All data access goes through MCP tools for consistent, reliable results.`;
     }
   }
 
+  /**
+   * Stream message response in real-time
+   * Returns an async generator that yields text chunks
+   */
+  async *streamMessage(dto: SendMessageDto, authToken?: string): AsyncGenerator<string, void, undefined> {
+    let conversation: schema.Conversation;
+    let isNewConversation = false;
+
+    if (dto.conversationId) {
+      conversation = await this.getConversation(dto.conversationId);
+    } else {
+      // Create a new conversation if none specified
+      conversation = await this.createConversation({
+        title: 'New Conversation',
+        model: this.aiModelService.getDefaultModel().id,
+      });
+      isNewConversation = true;
+    }
+
+    // Save user message
+    const [userMessage] = await this.db
+      .insert(schema.messages)
+      .values({
+        content: dto.content,
+        role: dto.role as any,
+        conversationId: conversation.id,
+      })
+      .returning();
+
+    // Get conversation history
+    const messages = await this.db
+      .select()
+      .from(schema.messages)
+      .where(eq(schema.messages.conversationId, conversation.id))
+      .orderBy(asc(schema.messages.createdAt));
+
+    // Convert to ChatMessage format for AI model
+    const chatMessages: ChatMessage[] = [];
+    
+    // Add system prompt if available
+    const systemPrompt = conversation.systemPrompt || this.getDefaultSystemPrompt();
+    if (systemPrompt) {
+      chatMessages.push({
+        role: 'system',
+        content: systemPrompt,
+      });
+    }
+
+    // Add conversation history
+    messages.forEach(msg => {
+      chatMessages.push({
+        role: msg.role as 'user' | 'assistant' | 'system',
+        content: msg.content,
+      });
+    });
+
+    // Handle MCP tools proactively if enabled
+    let mcpToolCalls: any[] = [];
+    const mcpServers = conversation.mcpServers || [];
+    if (dto.useMcp && mcpServers.length > 0) {
+      const availableServers = await this.mcpService.getAvailableServers();
+      const enabledServerNames = availableServers.map(server => server.name);
+      const activeServers = mcpServers.filter(serverName => 
+        enabledServerNames.includes(serverName)
+      );
+
+      try {
+        const conversationHistory = messages
+          .slice(-5)
+          .map(msg => msg.content);
+        
+        const semanticResults = await this.semanticMcpService.analyzeAndExecuteSemanticTools(
+          dto.content,
+          activeServers,
+          true,
+          authToken,
+          conversationHistory
+        );
+
+        if (semanticResults.length > 0) {
+          mcpToolCalls = semanticResults;
+        } else {
+          const proactiveResults = await this.proactiveMcpService.analyzeAndExecuteProactiveTools(
+            dto.content,
+            activeServers,
+            true,
+            authToken
+          );
+          
+          if (proactiveResults.length > 0) {
+            mcpToolCalls = proactiveResults;
+          }
+        }
+      } catch (error) {
+        this.logger.error(`MCP execution failed: ${error.message}`);
+      }
+    }
+
+    // Stream AI response
+    let fullContent = '';
+    for await (const chunk of this.aiModelService.generateResponseStream(
+      chatMessages,
+      conversation.model,
+      mcpToolCalls
+    )) {
+      fullContent += chunk;
+      yield chunk;
+    }
+
+    // Save assistant message after streaming completes
+    await this.db
+      .insert(schema.messages)
+      .values({
+        content: fullContent,
+        role: 'assistant' as any,
+        conversationId: conversation.id,
+        mcpToolCalls: mcpToolCalls.length > 0 ? mcpToolCalls : null,
+      });
+
+    // Generate smart title if needed
+    const conversationMessages = (conversation as any).messages || [];
+    const shouldGenerateTitle = isNewConversation || 
+      (conversation.title === 'New Conversation' && conversationMessages.length <= 2);
+    
+    if (shouldGenerateTitle) {
+      try {
+        const smartTitle = await this.generateSmartTitleFromConversation(
+          dto.content, 
+          fullContent
+        );
+        await this.updateConversation(conversation.id, { title: smartTitle });
+      } catch (error) {
+        this.logger.error(`Failed to generate smart title: ${error.message}`);
+      }
+    }
+  }
+
   private async generateSmartTitleFromConversation(userMessage: string, aiResponse: string): Promise<string> {
     try {
       // Use AI to generate a concise title based on both the user question and AI response
