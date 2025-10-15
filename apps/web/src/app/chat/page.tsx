@@ -9,6 +9,8 @@ import { Avatar } from '@/components/ui/avatar';
 import { toast } from '@/hooks/use-toast';
 import { apiClient, ApiError, NetworkError } from '@/lib/api-client';
 import { useTranslation } from '@/lib/i18n';
+import { useAuth } from '@/contexts/AuthContext';
+import { useChatWebSocket } from '@/hooks/useChatWebSocket';
 
 interface Message {
   id: string;
@@ -59,14 +61,15 @@ type TabType = 'chat' | 'config';
 
 export default function ChatPage() {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('chat');
+  
+  // Get token from sessionStorage
+  const token = typeof window !== 'undefined' ? sessionStorage.getItem('token') : null;
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [streamingMessage, setStreamingMessage] = useState<string>('');
-  const [streamingStatus, setStreamingStatus] = useState<string>('');
-  const [isStreaming, setIsStreaming] = useState(false);
   const [mcpServers, setMcpServers] = useState<McpServer[]>([]);
   const [aiModels, setAiModels] = useState<AIModel[]>([]);
   const [defaultModel, setDefaultModel] = useState<AIModel | null>(null);
@@ -75,6 +78,47 @@ export default function ChatPage() {
   const [editingConversationId, setEditingConversationId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // WebSocket Hook - handles real-time streaming
+  const {
+    isConnected,
+    isThinking,
+    streamingContent,
+    sendMessage: sendWebSocketMessage,
+  } = useChatWebSocket({
+    conversationId: currentConversation?.id || null,
+    token,
+    onMessage: (message) => {
+      // When a complete message arrives via WebSocket, update the conversation
+      if (currentConversation && message.conversationId === currentConversation.id) {
+        const updatedConversation = {
+          ...currentConversation,
+          messages: [
+            ...(currentConversation.messages || []).filter(m => !m.id.startsWith('temp-')),
+            message
+          ],
+        };
+        setCurrentConversation(updatedConversation);
+        
+        // Update conversations list
+        setConversations(conversations.map(conv => 
+          conv.id === message.conversationId ? updatedConversation : conv
+        ));
+        
+        // Refresh conversation title if it was "New Conversation"
+        if (currentConversation.title === 'New Conversation') {
+          fetchConversations();
+        }
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: 'WebSocket Error',
+        description: error,
+        variant: 'destructive',
+      });
+    },
+  });
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -274,14 +318,13 @@ export default function ChatPage() {
     }
   };
 
-  const sendStreamingMessage = async () => {
-    if (!message.trim()) return;
+  const sendMessage = async () => {
+    if (!message.trim() || !currentConversation) return;
 
     const userMessage = message;
     setMessage('');
-    setIsLoading(true);
 
-    // Immediately show user message
+    // Immediately show user message optimistically
     const tempUserMessage: Message = {
       id: `temp-${Date.now()}`,
       role: 'user',
@@ -289,61 +332,29 @@ export default function ChatPage() {
       createdAt: new Date().toISOString(),
     };
 
-    if (currentConversation) {
-      const updatedConversation = {
-        ...currentConversation,
-        messages: [...(currentConversation.messages || []), tempUserMessage],
-      };
-      setCurrentConversation(updatedConversation);
-    }
+    const updatedConversation = {
+      ...currentConversation,
+      messages: [...(currentConversation.messages || []), tempUserMessage],
+    };
+    setCurrentConversation(updatedConversation);
 
-    try {
-      // Use regular message sending for now (fallback until SSE is fully working)
-      const response = await apiClient.post('/chat/messages', {
-        content: userMessage,
-        role: 'user',
-        conversationId: currentConversation?.id,
-        useMcp,
-      });
-
-      if (currentConversation) {
-        const updatedConversation = {
-          ...currentConversation,
-          messages: [
-            ...(currentConversation.messages || []).filter(m => m.id !== tempUserMessage.id),
-            response.data.userMessage,
-            response.data.assistantMessage
-          ],
-        };
-        setCurrentConversation(updatedConversation);
-        
-        // Update conversations list
-        setConversations(conversations.map(conv => 
-          conv.id === currentConversation.id ? updatedConversation : conv
-        ));
-      }
-
-    } catch (error) {
-      console.error('Error sending message:', error);
-      const errorMessage = error instanceof ApiError 
-        ? `API Error: ${error.message}` 
-        : error instanceof NetworkError 
-        ? `Network Error: ${error.message}`
-        : 'Failed to send message';
-      
+    // Use WebSocket Streaming
+    console.log('Sending message via WebSocket...');
+    if (isConnected && sendWebSocketMessage) {
+      sendWebSocketMessage(userMessage);
+    } else {
       toast({
-        title: 'Error',
-        description: errorMessage,
+        title: 'Not connected',
+        description: 'WebSocket is not connected. Please refresh the page.',
         variant: 'destructive',
       });
-    } finally {
-      setIsLoading(false);
+      // Remove temp message
+      setCurrentConversation({
+        ...currentConversation,
+        messages: (currentConversation.messages || []).filter(m => m.id !== tempUserMessage.id),
+      });
     }
-  };
-
-  const sendMessage = async () => {
-    // Use streaming by default
-    return sendStreamingMessage();
+      
   };
 
   const deleteConversation = async (conversationId: string) => {
@@ -619,42 +630,31 @@ export default function ChatPage() {
                   </div>
                 ))}
 
-                {/* Streaming Status and Message */}
-                {isStreaming && (
-                  <>
-                    {/* Status Indicator */}
-                    {streamingStatus && (
-                      <div className="flex gap-3 justify-start">
-                        <Avatar className="w-8 h-8 bg-blue-500 text-white flex items-center justify-center text-sm">
-                          AI
-                        </Avatar>
-                        <div className="max-w-[70%] p-3 rounded-lg bg-blue-50 border border-blue-200">
-                          <div className="flex items-center gap-2 text-blue-600">
-                            <div className="animate-spin w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
-                            <span className="text-sm">{streamingStatus}</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Streaming AI Response */}
-                    {streamingMessage && (
-                      <div className="flex gap-3 justify-start">
-                        <Avatar className="w-8 h-8 bg-blue-500 text-white flex items-center justify-center text-sm">
-                          AI
-                        </Avatar>
-                        <div className="max-w-[70%] p-3 rounded-lg bg-gray-100 text-gray-900">
-                          <div className="whitespace-pre-wrap">{streamingMessage}</div>
+                {/* WebSocket Streaming */}
+                {(isThinking || streamingContent) && (
+                  <div className="flex gap-3 justify-start">
+                    <Avatar className="w-8 h-8 bg-blue-500 text-white flex items-center justify-center text-sm">
+                      AI
+                    </Avatar>
+                    <div className="max-w-[70%] p-3 rounded-lg bg-gray-100 text-gray-900">
+                      {streamingContent ? (
+                        <>
+                          <div className="whitespace-pre-wrap">{streamingContent}</div>
                           <div className="flex items-center gap-1 mt-2">
                             <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
                             <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
                             <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
                             <span className="text-xs text-gray-500 ml-2">Streaming...</span>
                           </div>
+                        </>
+                      ) : (
+                        <div className="flex items-center gap-2 text-blue-600">
+                          <div className="animate-spin w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                          <span className="text-sm">💭 Thinking...</span>
                         </div>
-                      </div>
-                    )}
-                  </>
+                      )}
+                    </div>
+                  </div>
                 )}
                 <div ref={messagesEndRef} />
               </CardContent>
@@ -667,10 +667,10 @@ export default function ChatPage() {
                     onChange={(e) => setMessage(e.target.value)}
                     placeholder={t('chat.messagePlaceholder')}
                     onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-                    disabled={isLoading || isStreaming}
+                    disabled={isThinking || !isConnected}
                   />
-                  <Button onClick={sendMessage} disabled={isLoading || isStreaming || !message.trim()}>
-                    {isStreaming ? t('chat.streaming') : isLoading ? t('chat.sending') : t('chat.sendMessage')}
+                  <Button onClick={sendMessage} disabled={isThinking || !message.trim() || !isConnected}>
+                    {isThinking ? 'Streaming...' : isConnected ? 'Send' : 'Connecting...'}
                   </Button>
                 </div>
               </div>
