@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, OnModuleInit } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ChatController } from './chat.controller';
 import { ChatGateway } from './chat.gateway';
@@ -38,4 +38,14 @@ import { WsJwtGuard } from '../auth/guards/ws-jwt.guard';
   ],
   exports: [ChatService, McpService, AIModelService],
 })
-export class ChatModule {}
+export class ChatModule implements OnModuleInit {
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly chatGateway: ChatGateway,
+  ) {}
+
+  onModuleInit() {
+    // Connect Gateway to Service for broadcasting
+    this.chatService.setChatGateway(this.chatGateway);
+  }
+}

@@ -30,8 +30,21 @@ export class ChatController {
   @RequirePermissions('chat')
   @ApiOperation({ operationId: 'createConversation' })
   @ApiCreatedResponse({ description: 'Created conversation' })
-  async createConversation(@Body() dto: CreateConversationDto) {
-    return this.chatService.createConversation(dto);
+  async createConversation(@Body() dto: CreateConversationDto, @Req() req: any) {
+    const user = req.user;
+    // Use user.id instead of user.sub (JWT strategy sets id, not sub)
+    const userId = user?.sub || user?.id;
+    const username = user?.username;
+    console.log('Creating conversation - User:', username, 'ID:', userId);
+    return this.chatService.createConversation(dto, userId, username);
+  }
+
+  @Get('conversations/all')
+  @RequirePermissions('chat')
+  @ApiOperation({ operationId: 'getAllConversations' })
+  @ApiOkResponse({ description: 'List of all conversations' })
+  async getAllConversations() {
+    return this.chatService.getAllConversations();
   }
 
   @Get('conversations/:id')
@@ -78,7 +91,19 @@ export class ChatController {
     // Extract JWT token from Authorization header
     const authHeader = req.headers.authorization;
     const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : undefined;
-    return this.chatService.sendMessage(dto, token);
+    const user = req.user;
+    // Use user.id instead of user.sub (JWT strategy sets id, not sub)
+    const userId = user?.sub || user?.id;
+    return this.chatService.sendMessage(dto, token, userId, user?.username);
+  }
+
+  @Get('conversations/:id/users')
+  @RequirePermissions('chat')
+  @ApiOperation({ operationId: 'getConversationUsers' })
+  @ApiParam({ name: 'id', type: 'string' })
+  @ApiOkResponse({ description: 'Active users in conversation' })
+  async getConversationUsers(@Param('id') id: string) {
+    return this.chatService.getActiveUsers(id);
   }
 
   @Get('mcp/servers')

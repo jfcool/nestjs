@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, jsonb, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, jsonb, timestamp, varchar } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { conversations } from './conversations';
 import { messageRoleEnum } from './enums';
@@ -13,6 +13,8 @@ export const messages = pgTable('messages', {
   conversationId: uuid('conversationId')
     .notNull()
     .references(() => conversations.id, { onDelete: 'cascade' }),
+  userId: varchar('userId', { length: 255 }),
+  username: varchar('username', { length: 255 }),
 });
 
 // Relations

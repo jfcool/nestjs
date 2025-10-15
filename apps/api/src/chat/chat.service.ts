@@ -32,7 +32,14 @@ export class ChatService {
     private documentRetrievalService: DocumentRetrievalService,
   ) {}
 
-  async createConversation(dto: CreateConversationDto) {
+  // Inject ChatGateway to broadcast updates
+  private chatGateway: any;
+  
+  setChatGateway(gateway: any) {
+    this.chatGateway = gateway;
+  }
+
+  async createConversation(dto: CreateConversationDto, userId?: string, username?: string) {
     const [conversation] = await this.db
       .insert(schema.conversations)
       .values({
@@ -40,8 +47,15 @@ export class ChatService {
         model: dto.model || 'gpt-4',
         systemPrompt: dto.systemPrompt ?? null,
         mcpServers: dto.mcpServers || [],
+        createdBy: username || userId || null,
+        activeUsers: [],
       })
       .returning();
+
+    // Broadcast update to all clients
+    if (this.chatGateway) {
+      await this.chatGateway.broadcastConversationsUpdate();
+    }
 
     return conversation;
   }
@@ -80,7 +94,14 @@ export class ChatService {
       .where(eq(schema.conversations.id, id))
       .returning();
     
-    return result.length > 0;
+    const deleted = result.length > 0;
+    
+    // Broadcast update to all clients
+    if (deleted && this.chatGateway) {
+      await this.chatGateway.broadcastConversationsUpdate();
+    }
+    
+    return deleted;
   }
 
   async updateConversation(id: string, updateData: { title?: string }) {
@@ -104,13 +125,18 @@ export class ChatService {
         .where(eq(schema.conversations.id, id))
         .returning();
       
+      // Broadcast update to all clients
+      if (this.chatGateway) {
+        await this.chatGateway.broadcastConversationsUpdate();
+      }
+      
       return { ...updated, messages: conversation.messages };
     }
 
     return conversation;
   }
 
-  async sendMessage(dto: SendMessageDto, authToken?: string): Promise<{ userMessage: any; assistantMessage: any }> {
+  async sendMessage(dto: SendMessageDto, authToken?: string, userId?: string, username?: string): Promise<{ userMessage: any; assistantMessage: any }> {
     let conversation: schema.Conversation;
     let isNewConversation = false;
 
@@ -122,7 +148,7 @@ export class ChatService {
       conversation = await this.createConversation({
         title: 'New Conversation',
         model: this.aiModelService.getDefaultModel().id,
-      });
+      }, userId);
       isNewConversation = true;
     }
 
@@ -133,13 +159,15 @@ export class ChatService {
         content: dto.content,
         role: dto.role as any,
         conversationId: conversation.id,
+        userId: userId || null,
+        username: username || null,
       })
       .returning();
 
       // Generate assistant response
       const assistantResponse = await this.generateResponse(conversation, dto, authToken);
 
-    // Save assistant message
+    // Save assistant message (AI messages have no userId, special username 'AI')
     const [assistantMessage] = await this.db
       .insert(schema.messages)
       .values({
@@ -147,6 +175,8 @@ export class ChatService {
         role: 'assistant' as any,
         conversationId: conversation.id,
         mcpToolCalls: assistantResponse.mcpToolCalls ?? null,
+        userId: null,
+        username: 'AI',
       })
       .returning();
 
@@ -396,7 +426,7 @@ All data access goes through MCP tools for consistent, reliable results.`;
    * Stream message response in real-time
    * Returns an async generator that yields text chunks
    */
-  async *streamMessage(dto: SendMessageDto, authToken?: string): AsyncGenerator<string, void, undefined> {
+  async *streamMessage(dto: SendMessageDto, authToken?: string, userId?: string, username?: string): AsyncGenerator<string, void, undefined> {
     let conversation: schema.Conversation;
     let isNewConversation = false;
 
@@ -407,7 +437,7 @@ All data access goes through MCP tools for consistent, reliable results.`;
       conversation = await this.createConversation({
         title: 'New Conversation',
         model: this.aiModelService.getDefaultModel().id,
-      });
+      }, userId);
       isNewConversation = true;
     }
 
@@ -418,6 +448,8 @@ All data access goes through MCP tools for consistent, reliable results.`;
         content: dto.content,
         role: dto.role as any,
         conversationId: conversation.id,
+        userId: userId || null,
+        username: username || null,
       })
       .returning();
 
@@ -501,7 +533,7 @@ All data access goes through MCP tools for consistent, reliable results.`;
       yield chunk;
     }
 
-    // Save assistant message after streaming completes
+    // Save assistant message after streaming completes (AI messages have no userId, special username 'AI')
     await this.db
       .insert(schema.messages)
       .values({
@@ -509,6 +541,8 @@ All data access goes through MCP tools for consistent, reliable results.`;
         role: 'assistant' as any,
         conversationId: conversation.id,
         mcpToolCalls: mcpToolCalls.length > 0 ? mcpToolCalls : null,
+        userId: null,
+        username: 'AI',
       });
 
     // Generate smart title if needed
@@ -582,6 +616,80 @@ The title should capture the main topic or question being discussed. Be specific
       // Fallback to simple truncation of user message
       return userMessage.substring(0, 47) + (userMessage.length > 47 ? '...' : '');
     }
+  }
+
+  /**
+   * Add a user to the active users list of a conversation
+   */
+  async addActiveUser(conversationId: string, userId: string, username: string) {
+    const conversation = await this.getConversation(conversationId);
+    const activeUsers = (conversation.activeUsers as any[]) || [];
+    
+    // Check if user is already in the list
+    const userExists = activeUsers.some(u => u.userId === userId);
+    if (userExists) {
+      this.logger.debug(`User ${username} (${userId}) is already active in conversation ${conversationId}`);
+      return conversation;
+    }
+
+    // Add new user to active users
+    const updatedActiveUsers = [...activeUsers, { userId, username }];
+    
+    const [updated] = await this.db
+      .update(schema.conversations)
+      .set({ activeUsers: updatedActiveUsers })
+      .where(eq(schema.conversations.id, conversationId))
+      .returning();
+
+    this.logger.log(`Added user ${username} (${userId}) to conversation ${conversationId}`);
+    return updated;
+  }
+
+  /**
+   * Remove a user from the active users list of a conversation
+   */
+  async removeActiveUser(conversationId: string, userId: string) {
+    try {
+      const conversation = await this.getConversation(conversationId);
+      const activeUsers = (conversation.activeUsers as any[]) || [];
+      
+      // Filter out the user
+      const updatedActiveUsers = activeUsers.filter(u => u.userId !== userId);
+      
+      const [updated] = await this.db
+        .update(schema.conversations)
+        .set({ activeUsers: updatedActiveUsers })
+        .where(eq(schema.conversations.id, conversationId))
+        .returning();
+
+      this.logger.log(`Removed user ${userId} from conversation ${conversationId}`);
+      return updated;
+    } catch (error) {
+      this.logger.error(`Failed to remove user ${userId} from conversation ${conversationId}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all active users in a conversation
+   */
+  async getActiveUsers(conversationId: string) {
+    const conversation = await this.getConversation(conversationId);
+    return (conversation.activeUsers as any[]) || [];
+  }
+
+  /**
+   * Get all conversations (not filtered by user)
+   */
+  async getAllConversations() {
+    return await this.db.query.conversations.findMany({
+      orderBy: [desc(schema.conversations.createdAt)],
+      with: {
+        messages: {
+          orderBy: [asc(schema.messages.createdAt)],
+        },
+      },
+    });
   }
 
 }

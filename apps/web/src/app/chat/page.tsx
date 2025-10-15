@@ -18,6 +18,8 @@ interface Message {
   content: string;
   createdAt: string;
   mcpToolCalls?: any[];
+  userId?: string | null;
+  username?: string | null;
 }
 
 interface Conversation {
@@ -28,6 +30,8 @@ interface Conversation {
   messages: Message[];
   createdAt: string;
   updatedAt: string;
+  createdBy?: string | null;
+  activeUsers?: Array<{userId: string; username: string}>;
 }
 
 interface McpServer {
@@ -91,19 +95,40 @@ export default function ChatPage() {
     onMessage: (message) => {
       // When a complete message arrives via WebSocket, update the conversation
       if (currentConversation && message.conversationId === currentConversation.id) {
-        const updatedConversation = {
-          ...currentConversation,
-          messages: [
-            ...(currentConversation.messages || []).filter(m => !m.id.startsWith('temp-')),
-            message
-          ],
-        };
-        setCurrentConversation(updatedConversation);
-        
-        // Update conversations list
-        setConversations(conversations.map(conv => 
-          conv.id === message.conversationId ? updatedConversation : conv
-        ));
+        setCurrentConversation(prev => {
+          if (!prev) return prev;
+          
+          const existingMessages = prev.messages || [];
+          
+          // EINFACH: Prüfe nur ob ID schon existiert
+          if (existingMessages.some(m => m.id === message.id)) {
+            return prev; // Skip - Message schon da
+          }
+          
+          // NUR temp-Messages von diesem User/AI entfernen, nicht alle!
+          // Temp-Messages die NICHT von dieser Rolle sind, bleiben erhalten
+          const messagesFiltered = existingMessages.filter(m => 
+            !m.id.startsWith('temp-') || m.role !== message.role
+          );
+          const updatedMessages = [...messagesFiltered, message];
+          
+          // Sortiere nach Timestamp für korrekte Chronologie
+          updatedMessages.sort((a, b) => 
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          );
+          
+          const updatedConversation = {
+            ...prev,
+            messages: updatedMessages,
+          };
+          
+          // Update conversations list
+          setConversations(convs => convs.map(conv => 
+            conv.id === message.conversationId ? updatedConversation : conv
+          ));
+          
+          return updatedConversation;
+        });
         
         // Refresh conversation title if it was "New Conversation"
         if (currentConversation.title === 'New Conversation') {
@@ -133,6 +158,18 @@ export default function ChatPage() {
     fetchMcpServers();
     fetchAiModels();
     fetchDefaultModel();
+
+    // Listen for conversations list updates from WebSocket
+    const handleConversationsUpdate = () => {
+      console.log('🔄 Conversations list updated, refreshing...');
+      fetchConversations();
+    };
+
+    window.addEventListener('conversationsUpdated', handleConversationsUpdate as EventListener);
+
+    return () => {
+      window.removeEventListener('conversationsUpdated', handleConversationsUpdate as EventListener);
+    };
   }, []);
 
   const fetchConversations = async () => {
@@ -434,7 +471,28 @@ export default function ChatPage() {
   };
 
   const formatTimestamp = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString();
+    const date = new Date(timestamp);
+    return date.toLocaleString('de-DE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  };
+
+  const selectConversation = async (conv: Conversation) => {
+    try {
+      // Always load fresh conversation data from server to get ALL messages
+      const response = await apiClient.get(`/chat/conversations/${conv.id}`);
+      const freshConversation = response.data;
+      setCurrentConversation(freshConversation);
+    } catch (error) {
+      console.error('Error loading conversation:', error);
+      // Fallback to cached data if server request fails
+      setCurrentConversation(conv);
+    }
   };
 
   const renderChatTab = () => (
@@ -469,7 +527,7 @@ export default function ChatPage() {
                   <div className="flex justify-between items-start">
                     <div 
                       className="flex-1 min-w-0 cursor-pointer"
-                      onClick={() => setCurrentConversation(conv)}
+                      onClick={() => selectConversation(conv)}
                     >
                       {editingConversationId === conv.id ? (
                         <div className="space-y-2">
@@ -517,6 +575,8 @@ export default function ChatPage() {
                           <p className="text-sm font-medium truncate">{conv.title}</p>
                           <p className="text-xs text-gray-500">
                             {conv.messages?.length || 0} messages
+                            {' • Created by '}
+                            {conv.createdBy ? `User ${conv.createdBy}` : 'Unknown'}
                           </p>
                           <div className="flex gap-1 mt-1">
                             <Badge variant="outline" className="text-xs">
@@ -589,46 +649,65 @@ export default function ChatPage() {
             <>
               {/* Messages */}
               <CardContent className="flex-1 overflow-y-auto space-y-4">
-                {(currentConversation.messages || []).map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    {msg.role === 'assistant' && (
-                      <Avatar className="w-8 h-8 bg-blue-500 text-white flex items-center justify-center text-sm">
-                        AI
-                      </Avatar>
-                    )}
+                {(currentConversation.messages || []).map((msg) => {
+                  const isCurrentUser = msg.userId === user?.id;
+                  const displayName = msg.username || (msg.role === 'assistant' ? 'AI' : 'User');
+                  const isAI = msg.role === 'assistant' || msg.username === 'AI';
+                  
+                  return (
                     <div
-                      className={`max-w-[70%] p-3 rounded-lg ${
-                        msg.role === 'user'
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-100 text-gray-900'
-                      }`}
+                      key={msg.id}
+                      className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
-                      <div className="whitespace-pre-wrap">{msg.content}</div>
-                      {msg.mcpToolCalls && msg.mcpToolCalls.length > 0 && (
-                        <div className="mt-2 text-xs opacity-75">
-                          <div className="flex flex-wrap gap-1">
-                            {msg.mcpToolCalls.map((toolCall, idx) => (
-                              <Badge key={idx} variant="outline" className="text-xs">
-                                {toolCall.toolCall.serverName}.{toolCall.toolCall.toolName}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
+                      {msg.role === 'assistant' && (
+                        <Avatar className="w-8 h-8 bg-blue-500 text-white flex items-center justify-center text-sm font-bold">
+                          🤖
+                        </Avatar>
                       )}
-                      <div className="text-xs opacity-75 mt-1">
-                        {formatTimestamp(msg.createdAt)}
+                      <div
+                        className={`max-w-[70%] p-3 rounded-lg ${
+                          msg.role === 'user'
+                            ? isCurrentUser 
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-green-500 text-white'
+                            : 'bg-gray-100 text-gray-900'
+                        }`}
+                      >
+                        {/* Username Header */}
+                        <div className="text-xs font-semibold mb-1 flex items-center gap-1">
+                          {isAI ? '🤖 ' : '👤 '}
+                          {displayName}
+                          {isCurrentUser && msg.role === 'user' && (
+                            <span className="text-xs opacity-75">(You)</span>
+                          )}
+                        </div>
+                        
+                        <div className="whitespace-pre-wrap">{msg.content}</div>
+                        {msg.mcpToolCalls && msg.mcpToolCalls.length > 0 && (
+                          <div className="mt-2 text-xs opacity-75">
+                            <div className="flex flex-wrap gap-1">
+                              {msg.mcpToolCalls.map((toolCall, idx) => (
+                                <Badge key={idx} variant="outline" className="text-xs">
+                                  {toolCall.toolCall.serverName}.{toolCall.toolCall.toolName}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        <div className="text-xs opacity-75 mt-1">
+                          {formatTimestamp(msg.createdAt)}
+                        </div>
                       </div>
+                      {msg.role === 'user' && (
+                        <Avatar className={`w-8 h-8 text-white flex items-center justify-center text-sm font-bold ${
+                          isCurrentUser ? 'bg-blue-600' : 'bg-green-600'
+                        }`}>
+                          {displayName.substring(0, 2).toUpperCase()}
+                        </Avatar>
+                      )}
                     </div>
-                    {msg.role === 'user' && (
-                      <Avatar className="w-8 h-8 bg-green-500 text-white flex items-center justify-center text-sm">
-                        U
-                      </Avatar>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
 
                 {/* WebSocket Streaming */}
                 {(isThinking || streamingContent) && (

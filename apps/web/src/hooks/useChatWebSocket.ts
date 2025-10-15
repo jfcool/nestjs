@@ -39,7 +39,17 @@ export function useChatWebSocket({
 
     console.log('Initializing WebSocket connection...');
     
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    // Dynamically determine API URL based on current host
+    let apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    
+    // If not set or is localhost, construct from current window.location
+    if (!apiUrl || apiUrl.includes('localhost')) {
+      const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+      const hostname = window.location.hostname;
+      // Use port 3001 for API (assuming Next.js runs on 3000, API on 3001)
+      apiUrl = `${protocol}//${hostname}:3001`;
+      console.log(`Dynamically constructed API URL: ${apiUrl}`);
+    }
     
     const newSocket = io(`${apiUrl}/chat`, {
       auth: {
@@ -71,6 +81,24 @@ export function useChatWebSocket({
     });
 
     // Chat events
+    // Listen for user messages sent by others
+    newSocket.on('chat:user-message-sent', (data) => {
+      console.log('👤 User message sent:', data);
+      // Create a message object and call onMessage immediately
+      if (onMessage) {
+        const userMessage: ChatMessage = {
+          id: `temp-${data.timestamp}`,
+          content: data.content,
+          role: 'user',
+          conversationId: data.conversationId,
+          createdAt: data.timestamp,
+          userId: data.userId,
+          username: data.username,
+        } as any;
+        onMessage(userMessage);
+      }
+    });
+
     newSocket.on('chat:thinking', (data) => {
       console.log('💭 AI is thinking:', data);
       setIsThinking(true);
@@ -114,6 +142,13 @@ export function useChatWebSocket({
 
     newSocket.on('chat:joined', (data) => {
       console.log('✅ Joined conversation:', data);
+    });
+
+    // Listen for conversations list updates
+    newSocket.on('chat:conversations-updated', (data) => {
+      console.log('📋 Conversations list updated:', data);
+      // Trigger a re-fetch of conversations in the parent component
+      window.dispatchEvent(new CustomEvent('conversationsUpdated', { detail: data }));
     });
 
     socketRef.current = newSocket;
